@@ -66,6 +66,8 @@ Gradle/AGPを使わず、aapt2 + Kotlinコンパイラ + d8 の手動ビルド�
   自分の鍵で署名する場合は環境変数 `YORU_CLOCK_KEYSTORE` / `YORU_CLOCK_KEYSTORE_PASS` /
   `YORU_CLOCK_KEY_ALIAS` / `YORU_CLOCK_KEY_PASS` で指定する
 
+ビルドは bash スクリプトです（build.bat はありません）。Windows では WSL 上で実行してください。
+
 ## テスト
 
 純ロジック（アラーム次回発火・時差計算・フォーマット類）の単体テスト:
