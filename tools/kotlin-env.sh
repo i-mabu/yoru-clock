@@ -1,5 +1,10 @@
 # Kotlin コンパイラ 1.9.23 の解決 (build-apk.sh / tests/run-tests.sh 共通)
-# 優先順位: (1) PATH 上の kotlinc (2) $KOTLIN_HOME/bin/kotlinc (3) embeddable jars
+# 優先順位: (1) $KOTLIN_HOME/bin/kotlinc (明示指定を最優先)
+#           (2) PATH 上の kotlinc (シンボリックリンクを解決して stdlib を探す)
+#           (3) embeddable jars
+#   (2) で stdlib が特定できない場合はエラーにせず次の候補へ進む
+#   (CI ランナーには素性不明の kotlinc が /usr/bin にあることがあり、
+#    それに引きずられて落ちるのを防ぐため)。
 #   embeddable jars は $KOTLIN_EMBEDDABLE_DIR があればそこ、なければ
 #   ~/workspace/tools/android/gradle/lib (Gradle 8.9 同梱) を探す。
 # 提供するもの:
@@ -13,26 +18,36 @@ KOTLINC_BIN=""
 KOTLIN_EMBEDDABLE_CP=""
 KOTLIN_STDLIB_JAR=""
 
+# kotlinc バイナリ候補を検証し、使えるなら KOTLIN_MODE 等を設定して 0 を返す
+_try_kotlinc() {
+    local kc="$1"
+    [ -x "$kc" ] || return 1
+    local real dir home cand
+    real="$(readlink -f "$kc" 2>/dev/null || echo "$kc")"
+    dir="$(dirname "$real")"
+    home="$(cd "$dir/.." 2>/dev/null && pwd)"
+    for cand in \
+        "$home/lib/kotlin-stdlib.jar" \
+        "$home"/lib/kotlin-stdlib-*.jar \
+        "$home/share/kotlin/lib/kotlin-stdlib.jar" \
+        "$dir/../share/kotlin/lib/kotlin-stdlib.jar" \
+        "/usr/share/kotlin/lib/kotlin-stdlib.jar" \
+        "/usr/share/java/kotlin-stdlib.jar"; do
+        if [ -f "$cand" ]; then
+            KOTLIN_STDLIB_JAR="$cand"
+            KOTLIN_MODE="kotlinc"
+            KOTLINC_BIN="$kc"
+            return 0
+        fi
+    done
+    return 1
+}
+
 _kotlin_resolve() {
-    local kc=""
-    if command -v kotlinc >/dev/null 2>&1; then
-        kc="$(command -v kotlinc)"
-    elif [ -n "${KOTLIN_HOME:-}" ] && [ -x "$KOTLIN_HOME/bin/kotlinc" ]; then
-        kc="$KOTLIN_HOME/bin/kotlinc"
+    if [ -n "${KOTLIN_HOME:-}" ] && _try_kotlinc "$KOTLIN_HOME/bin/kotlinc"; then
+        return 0
     fi
-    if [ -n "$kc" ]; then
-        local home
-        home="$(cd "$(dirname "$kc")/.." && pwd)"
-        KOTLIN_STDLIB_JAR="$home/lib/kotlin-stdlib.jar"
-        if [ ! -f "$KOTLIN_STDLIB_JAR" ]; then
-            KOTLIN_STDLIB_JAR="$(ls "$home"/lib/kotlin-stdlib-*.jar 2>/dev/null | head -1)"
-        fi
-        if [ -z "$KOTLIN_STDLIB_JAR" ] || [ ! -f "$KOTLIN_STDLIB_JAR" ]; then
-            echo "エラー: kotlinc は見つかりましたが kotlin-stdlib.jar が特定できません: $kc" >&2
-            return 1
-        fi
-        KOTLIN_MODE="kotlinc"
-        KOTLINC_BIN="$kc"
+    if command -v kotlinc >/dev/null 2>&1 && _try_kotlinc "$(command -v kotlinc)"; then
         return 0
     fi
     local dir=""
@@ -63,8 +78,8 @@ _kotlin_resolve() {
     fi
     echo "エラー: Kotlin コンパイラ $KOTLIN_VERSION が見つかりません。" >&2
     echo "  対処のいずれかを行ってください:" >&2
-    echo "    - kotlinc ($KOTLIN_VERSION) を PATH に入れる" >&2
     echo "    - KOTLIN_HOME に Kotlin $KOTLIN_VERSION のインストール先を設定する" >&2
+    echo "    - kotlinc ($KOTLIN_VERSION) を PATH に入れる" >&2
     echo "    - KOTLIN_EMBEDDABLE_DIR に kotlin-compiler-embeddable-$KOTLIN_VERSION.jar 等のあるディレクトリを指定する" >&2
     return 1
 }
