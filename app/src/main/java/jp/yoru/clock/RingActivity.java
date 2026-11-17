@@ -1,6 +1,7 @@
 package jp.yoru.clock;
 
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
@@ -10,6 +11,8 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.view.Gravity;
@@ -23,11 +26,23 @@ import java.util.Calendar;
 
 // ===== 鳴動画面 (アラーム/タイマー共通): 音 + バイブ + スヌーズ5分 / 停止 =====
 public final class RingActivity extends Activity {
+    private static final long AUTO_STOP_MS = 10L * 60L * 1000L; // 鳴動は最大10分で自動停止
+
     private MediaPlayer player;
     private Vibrator vibrator;
     private String kind = "alarm";
     private long alarmId = -1;
     private String label = "";
+    private int notifId = -1;
+    private int alarmRc = 0;
+
+    private final Handler timeoutHandler = new Handler(Looper.getMainLooper());
+    private final Runnable ringTimeout = this::onRingTimeout;
+
+    private void onRingTimeout() {
+        stopRinging();
+        finish();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +63,12 @@ public final class RingActivity extends Activity {
         alarmId = intent.getLongExtra(AlarmScheduler.EXTRA_ALARM_ID, -1);
         label = intent.getStringExtra(AlarmScheduler.EXTRA_LABEL);
         if (label == null) label = "";
+        notifId = intent.getIntExtra(AlarmScheduler.EXTRA_NOTIF_ID, -1);
+        // スヌーズの requestCode 分離用に、このアラームの rc を引いておく
+        if ("alarm".equals(kind) && alarmId >= 0) {
+            AlarmItem self = AlarmStore.findById(AlarmStore.load(this), alarmId);
+            if (self != null) alarmRc = self.rc;
+        }
         int hour = intent.getIntExtra(AlarmScheduler.EXTRA_HOUR, -1);
         int minute = intent.getIntExtra(AlarmScheduler.EXTRA_MINUTE, -1);
 
@@ -92,7 +113,7 @@ public final class RingActivity extends Activity {
         snooze.setText("スヌーズ（5分）");
         snooze.setTextSize(18);
         snooze.setOnClickListener(v -> {
-            AlarmScheduler.scheduleSnooze(this, kind, alarmId, label.isEmpty() ? title : label.replace("（スヌーズ）", ""));
+            AlarmScheduler.scheduleSnooze(this, kind, alarmId, label.isEmpty() ? title : label.replace("（スヌーズ）", ""), alarmRc);
             stopRinging();
             finish();
         });
@@ -113,6 +134,20 @@ public final class RingActivity extends Activity {
 
         setContentView(root);
         startRinging();
+        timeoutHandler.removeCallbacks(ringTimeout);
+        timeoutHandler.postDelayed(ringTimeout, AUTO_STOP_MS);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        // 通知経路と直接起動が重なった場合は、新しい Intent で画面を作り直して一本化する
+        setIntent(intent);
+        stopRinging();
+        timeoutHandler.removeCallbacks(ringTimeout);
+        // 作り直した新しいインスタンス側で通知を消すため、旧インスタンスの onDestroy では消さない
+        notifId = -1;
+        recreate();
     }
 
     private void startRinging() {
@@ -131,7 +166,10 @@ public final class RingActivity extends Activity {
                 player.prepare();
                 player.start();
             } catch (Exception ignored) {
-                player = null;
+                if (player != null) {
+                    try { player.release(); } catch (Exception ignored2) {}
+                    player = null;
+                }
             }
         }
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
@@ -156,7 +194,13 @@ public final class RingActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        timeoutHandler.removeCallbacks(ringTimeout);
         stopRinging();
+        // 対応する高優先度通知も消す
+        if (notifId > 0) {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) nm.cancel(notifId);
+        }
         super.onDestroy();
     }
 

@@ -18,11 +18,13 @@ public final class AnalogClockView extends View {
     private final Paint secPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint numPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint centerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private float density = 1f;
 
     public AnalogClockView(Context context) { super(context); init(); }
     public AnalogClockView(Context context, AttributeSet attrs) { super(context, attrs); init(); }
 
     private void init() {
+        density = getResources().getDisplayMetrics().density;
         facePaint.setColor(Color.parseColor("#161D38"));
         facePaint.setStyle(Paint.Style.FILL);
         tickPaint.setColor(Color.parseColor("#9AA3C7"));
@@ -45,21 +47,21 @@ public final class AnalogClockView extends View {
         int h = getHeight();
         float cx = w / 2f;
         float cy = h / 2f;
-        float radius = Math.min(w, h) / 2f - 8f;
+        float radius = Math.min(w, h) / 2f - 8f * density;
         if (radius <= 0) return;
 
         canvas.drawCircle(cx, cy, radius, facePaint);
 
-        // 目盛り (60本、5分刻みは長く太く)
+        // 目盛り (60本、5分刻みは長く太く)。線幅・余白は density 換算
         for (int i = 0; i < 60; i++) {
             double ang = Math.toRadians(i * 6 - 90);
             boolean big = i % 5 == 0;
             float len = big ? radius * 0.12f : radius * 0.06f;
-            tickPaint.setStrokeWidth(big ? 5f : 2f);
+            tickPaint.setStrokeWidth(big ? 5f * density : 2f * density);
             float x1 = cx + (float) Math.cos(ang) * (radius - len);
             float y1 = cy + (float) Math.sin(ang) * (radius - len);
-            float x2 = cx + (float) Math.cos(ang) * (radius - 4f);
-            float y2 = cy + (float) Math.sin(ang) * (radius - 4f);
+            float x2 = cx + (float) Math.cos(ang) * (radius - 4f * density);
+            float y2 = cy + (float) Math.sin(ang) * (radius - 4f * density);
             canvas.drawLine(x1, y1, x2, y2, tickPaint);
         }
 

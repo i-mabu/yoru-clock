@@ -41,9 +41,16 @@ public class TestMain {
     }
 
     public static void main(String[] args) {
+        // "dst" 引数時は DST パス専用 (run-tests.sh が -Duser.timezone=America/New_York で実行)
+        if (args.length > 0 && "dst".equals(args[0])) {
+            testDstSpringForward();
+            System.out.println("ALL DST TESTS PASSED: " + passed + " checks");
+            return;
+        }
         testNextTrigger();
         testOffset();
         testFormats();
+        testRequestCodeAndShortRepeat();
         System.out.println("ALL TESTS PASSED: " + passed + " checks");
     }
 
@@ -128,6 +135,63 @@ public class TestMain {
         // ゾーン時刻: 東京 12:00 のときロンドンは 03:00
         eq(ClockLogic.formatTimeInZone("Europe/London", nov), "03:00", "London time when Tokyo noon");
         eq(ClockLogic.formatTimeInZone("Asia/Tokyo", nov), "12:00", "Tokyo time noon");
+
+        // 夏時間 (2026年7月 = ロンドンBST / NY EDT): 冬より1時間ずつ日本に近づく
+        Calendar tokyoJul = Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Tokyo"));
+        tokyoJul.set(2026, Calendar.JULY, 15, 12, 0, 0);
+        tokyoJul.set(Calendar.MILLISECOND, 0);
+        long jul = tokyoJul.getTimeInMillis();
+        check(ClockLogic.offsetHoursFromJapan("Europe/London", jul) == -8.0, "offset London summer -8");
+        check(ClockLogic.offsetHoursFromJapan("America/New_York", jul) == -13.0, "offset New York summer -13");
+
+        // 負の小数オフセット
+        eq(ClockLogic.formatOffset(-3.5), "-3.5時間", "formatOffset -3.5");
+    }
+
+    // ----- requestCode 採番 / 短い repeat 配列の安全性 -----
+    private static void testRequestCodeAndShortRepeat() {
+        // nextRequestCode: 空 → 1
+        check(AlarmItem.nextRequestCode(new java.util.ArrayList<>()) == 1, "nextRequestCode empty -> 1");
+        // nextRequestCode: 既存 {1, 3} → 4
+        java.util.List<AlarmItem> items = new java.util.ArrayList<>();
+        AlarmItem a = new AlarmItem(); a.rc = 1; items.add(a);
+        AlarmItem b = new AlarmItem(); b.rc = 3; items.add(b);
+        check(AlarmItem.nextRequestCode(items) == 4, "nextRequestCode {1,3} -> 4");
+
+        long tue0800 = at(2026, 11, 17, 8, 0);
+        // 短い repeat 配列 (長さ1, 全 false): 例外なく単発相当 (今日の未来時刻)
+        long t1 = ClockLogic.nextTriggerMillis(tue0800, 9, 0, new boolean[1]);
+        check(t1 == at(2026, 11, 17, 9, 0), "short repeat len1 one-shot -> today " + ymdhm(t1));
+        // 短い repeat 配列 (長さ2, 火曜のみ): 対象曜日として扱われる
+        boolean[] shortTue = new boolean[2];
+        shortTue[1] = true;
+        check(ClockLogic.hasRepeat(shortTue), "hasRepeat short array true");
+        long t2 = ClockLogic.nextTriggerMillis(tue0800, 9, 30, shortTue);
+        check(t2 == at(2026, 11, 17, 9, 30), "short repeat Tue -> today " + ymdhm(t2));
+        // repeatSummary も短い配列で例外を投げない
+        eq(ClockLogic.repeatSummary(new boolean[3]), "1回のみ", "repeatSummary short array safe");
+    }
+
+    // ----- DST パス: 春の前進で存在しない壁時刻 (America/New_York 前提で実行) -----
+    private static void testDstSpringForward() {
+        // 2026-03-08 は spring forward: 02:00 EST → 03:00 EDT に跳び、02:30 は存在しない。
+        // 実験確認済み: java.util.Calendar は存在しない壁時刻を lenient に解決し、
+        // 02:30 の指定は 03:30 EDT (跳んだ直後の有効時刻) になる。
+        long now = at(2026, 3, 7, 12, 0); // 前日正午 (EST)
+        long trigger = ClockLogic.nextTriggerMillis(now, 2, 30, new boolean[7]);
+        Calendar expected = Calendar.getInstance();
+        expected.set(2026, Calendar.MARCH, 8, 3, 30, 0);
+        expected.set(Calendar.MILLISECOND, 0);
+        check(trigger == expected.getTimeInMillis(),
+            "DST gap 02:30 resolves to 03:30 EDT millis (actual=" + trigger + ")");
+        Calendar back = Calendar.getInstance();
+        back.setTimeInMillis(trigger);
+        check(back.get(Calendar.DAY_OF_MONTH) == 8
+            && back.get(Calendar.HOUR_OF_DAY) == 3
+            && back.get(Calendar.MINUTE) == 30,
+            "DST resolved fields are Mar 8 03:30");
+        check(java.util.TimeZone.getTimeZone("America/New_York").getOffset(trigger) == -4L * 3600L * 1000L,
+            "DST resolved offset is EDT (-4h)");
     }
 
     // ----- フォーマット類 -----

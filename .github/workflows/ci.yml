@@ -37,5 +37,6 @@ jobs:
           ANDROID_SDK_ROOT="$ANDROID_HOME" ./build-apk.sh
       - name: Verify APK
         run: |
+          set -o pipefail
           "$ANDROID_HOME/build-tools/34.0.0/aapt2" dump badging dist/yoru-clock.apk | head -5
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify dist/yoru-clock.apk

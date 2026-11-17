@@ -103,6 +103,7 @@ public final class AlarmEditActivity extends Activity {
                 AlarmItem target = AlarmStore.findById(items, editingId);
                 if (target != null) {
                     AlarmScheduler.cancelAlarm(this, target);
+                    AlarmScheduler.cancelSnoozeAlarm(this, target.rc);
                     items.remove(target);
                     AlarmStore.save(this, items);
                 }
@@ -131,28 +132,42 @@ public final class AlarmEditActivity extends Activity {
             if (item == null) {
                 item = new AlarmItem();
                 item.id = editingId;
+                // 自分を add する前のリストで rc を採番する (既存と重複しない)
+                item.rc = AlarmItem.nextRequestCode(items);
+                item.enabled = true;
                 items.add(item);
             }
+            // 既存アラームの編集では enabled (ON/OFF) を保持する
         } else {
             item = new AlarmItem();
             item.id = AlarmStore.newId(items);
+            // 自分を add する前のリストで rc を採番する (既存と重複しない)
+            item.rc = AlarmItem.nextRequestCode(items);
+            item.enabled = true;
             items.add(item);
         }
         item.hour = timePicker.getHour();
         item.minute = timePicker.getMinute();
         item.label = labelEdit.getText().toString().trim();
         for (int i = 0; i < 7; i++) item.repeat[i] = dayBoxes[i].isChecked();
-        item.enabled = true;
         // 時刻順に並べ替えて保存
         items.sort((a, b) -> {
             int t = Integer.compare(a.hour * 60 + a.minute, b.hour * 60 + b.minute);
             return t != 0 ? t : Long.compare(a.id, b.id);
         });
         AlarmStore.save(this, items);
-        long trigger = AlarmScheduler.scheduleAlarm(this, item);
-        String msg = trigger > 0
-            ? "アラームを設定: " + ClockLogic.describeTrigger(trigger, System.currentTimeMillis())
-            : "アラームを保存しました";
+        String msg;
+        if (item.enabled) {
+            long trigger = AlarmScheduler.scheduleAlarm(this, item);
+            msg = trigger > 0
+                ? "アラームを設定: " + ClockLogic.describeTrigger(trigger, System.currentTimeMillis())
+                : "アラームを保存しました";
+        } else {
+            // OFF のまま保存されたら登録もスヌーズも取り消す
+            AlarmScheduler.cancelAlarm(this, item);
+            AlarmScheduler.cancelSnoozeAlarm(this, item.rc);
+            msg = "アラームを保存しました（OFF）";
+        }
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
         finish();
     }

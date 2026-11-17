@@ -4,8 +4,10 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -27,6 +29,7 @@ import org.json.JSONArray;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.TimeZone;
 
 // ===== よる時計 メイン画面 (時計 / アラーム / タイマー / ストップウォッチ の4タブ) =====
 public final class MainActivity extends Activity {
@@ -61,6 +64,8 @@ public final class MainActivity extends Activity {
     private ProgressBar timerProgress;
     private Button timerStartPauseBtn;
     private LinearLayout timerPickerRow;
+    private LinearLayout timerPresetRow1;
+    private LinearLayout timerPresetRow2;
 
     // ストップウォッチタブ
     private TextView swView;
@@ -126,9 +131,16 @@ public final class MainActivity extends Activity {
         root.addView(tabRow);
 
         setContentView(root);
+        // Android 13+: 鳴動通知の表示許可を求める (主経路は高優先度通知のため)
+        if (Build.VERSION.SDK_INT >= 33
+            && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 1001);
+        }
         loadWorldCities();
         renderWorldCities();
         selectTab(0);
+        // バックアップ復元・アプリ更新直後の初回起動でも登録を正規化する
+        AlarmScheduler.rescheduleAll(this);
         restoreTimerState();
     }
 
@@ -201,16 +213,21 @@ public final class MainActivity extends Activity {
         worldCities.clear();
         SharedPreferences sp = getSharedPreferences("world", MODE_PRIVATE);
         String json = sp.getString("cities_json", null);
-        if (json != null) {
-            try {
-                JSONArray arr = new JSONArray(json);
-                for (int i = 0; i < arr.length(); i++) {
-                    ClockLogic.City c = ClockLogic.findCityByTz(arr.getString(i));
-                    if (c != null) worldCities.add(c);
-                }
-            } catch (Exception ignored) {}
+        if (json == null) {
+            // 保存キー自体がない初回のみ既定6都市。空配列は「全て削除した」状態として尊重する
+            worldCities.addAll(ClockLogic.DEFAULT_CITIES);
+            return;
         }
-        if (worldCities.isEmpty()) worldCities.addAll(ClockLogic.DEFAULT_CITIES);
+        try {
+            JSONArray arr = new JSONArray(json);
+            for (int i = 0; i < arr.length(); i++) {
+                ClockLogic.City c = ClockLogic.findCityByTz(arr.getString(i));
+                if (c == null) continue;
+                boolean dup = false;
+                for (ClockLogic.City w : worldCities) if (w.tzId.equals(c.tzId)) { dup = true; break; }
+                if (!dup) worldCities.add(c);
+            }
+        } catch (Exception ignored) {}
     }
 
     private void saveWorldCities() {
@@ -241,6 +258,7 @@ public final class MainActivity extends Activity {
 
             TextView off = makeText(ClockLogic.formatOffsetFromJapan(city.tzId, now), 14, SUB);
             off.setGravity(Gravity.END);
+            off.setTag("worldoffset:" + city.tzId);
             row.addView(off, new LinearLayout.LayoutParams(dp(76), LinearLayout.LayoutParams.WRAP_CONTENT));
 
             TextView time = makeText(ClockLogic.formatTimeInZone(city.tzId, now), 22, GOLD);
@@ -275,10 +293,16 @@ public final class MainActivity extends Activity {
                 for (int j = 0; j < r.getChildCount(); j++) {
                     View child = r.getChildAt(j);
                     Object tag = child.getTag();
-                    if (child instanceof TextView && tag instanceof String
-                        && ((String) tag).startsWith("worldtime:")) {
-                        String tz = ((String) tag).substring("worldtime:".length());
-                        ((TextView) child).setText(ClockLogic.formatTimeInZone(tz, now));
+                    if (child instanceof TextView && tag instanceof String) {
+                        String t = (String) tag;
+                        if (t.startsWith("worldtime:")) {
+                            String tz = t.substring("worldtime:".length());
+                            ((TextView) child).setText(ClockLogic.formatTimeInZone(tz, now));
+                        } else if (t.startsWith("worldoffset:")) {
+                            // 夏時間の切り替わりで時差も変わるため、時刻と一緒に更新する
+                            String tz = t.substring("worldoffset:".length());
+                            ((TextView) child).setText(ClockLogic.formatOffsetFromJapan(tz, now));
+                        }
                     }
                 }
             }
@@ -315,7 +339,8 @@ public final class MainActivity extends Activity {
     private void runClockTick() {
         long now = System.currentTimeMillis();
         Calendar cal = Calendar.getInstance();
-        digitalView.setText(ClockLogic.formatTimeSecInZone("Asia/Tokyo", now));
+        // デジタル時計は端末ローカルTZ (アナログ・日付表示と揃える)
+        digitalView.setText(ClockLogic.formatTimeSecInZone(TimeZone.getDefault().getID(), now));
         dateView.setText(ClockLogic.formatDateJa(cal));
         analogView.invalidate();
         refreshWorldTimes();
@@ -396,6 +421,7 @@ public final class MainActivity extends Activity {
                         Toast.LENGTH_SHORT).show();
                 } else {
                     AlarmScheduler.cancelAlarm(this, target);
+                    AlarmScheduler.cancelSnoozeAlarm(this, target.rc);
                     Toast.makeText(this, "アラームをOFFにしました", Toast.LENGTH_SHORT).show();
                 }
                 renderAlarms();
@@ -436,9 +462,9 @@ public final class MainActivity extends Activity {
         timerPickerRow = new LinearLayout(this);
         timerPickerRow.setOrientation(LinearLayout.HORIZONTAL);
         timerPickerRow.setGravity(Gravity.CENTER);
-        hourPicker = makePicker(0, 23, "時");
-        minPicker = makePicker(0, 59, "分");
-        secPicker = makePicker(0, 59, "秒");
+        hourPicker = makePicker(0, 23);
+        minPicker = makePicker(0, 59);
+        secPicker = makePicker(0, 59);
         minPicker.setValue(5);
         timerPickerRow.addView(pickerWithLabel(hourPicker, "時間"));
         timerPickerRow.addView(pickerWithLabel(minPicker, "分"));
@@ -446,10 +472,10 @@ public final class MainActivity extends Activity {
         l.addView(timerPickerRow);
 
         // プリセット
-        LinearLayout presetRow1 = new LinearLayout(this);
-        presetRow1.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout presetRow2 = new LinearLayout(this);
-        presetRow2.setOrientation(LinearLayout.HORIZONTAL);
+        timerPresetRow1 = new LinearLayout(this);
+        timerPresetRow1.setOrientation(LinearLayout.HORIZONTAL);
+        timerPresetRow2 = new LinearLayout(this);
+        timerPresetRow2.setOrientation(LinearLayout.HORIZONTAL);
         int[] presets = {1, 3, 5, 10, 15, 30, 60};
         for (int i = 0; i < presets.length; i++) {
             final int mins = presets[i];
@@ -459,11 +485,11 @@ public final class MainActivity extends Activity {
                 minPicker.setValue(mins % 60);
                 secPicker.setValue(0);
             });
-            LinearLayout row = i < 4 ? presetRow1 : presetRow2;
+            LinearLayout row = i < 4 ? timerPresetRow1 : timerPresetRow2;
             row.addView(b, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         }
-        l.addView(presetRow1);
-        l.addView(presetRow2);
+        l.addView(timerPresetRow1);
+        l.addView(timerPresetRow2);
 
         LinearLayout btnRow = new LinearLayout(this);
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -482,12 +508,19 @@ public final class MainActivity extends Activity {
         return wrapScroll(l);
     }
 
-    private NumberPicker makePicker(int min, int max, String unit) {
+    private NumberPicker makePicker(int min, int max) {
         NumberPicker p = new NumberPicker(this);
         p.setMinValue(min);
         p.setMaxValue(max);
         p.setFormatter(v -> String.format(java.util.Locale.US, "%02d", v));
         return p;
+    }
+
+    /** タイマーの入力系 (ピッカー+プリセット) の表示をまとめて切り替える */
+    private void setTimerInputVisibility(int vis) {
+        timerPickerRow.setVisibility(vis);
+        if (timerPresetRow1 != null) timerPresetRow1.setVisibility(vis);
+        if (timerPresetRow2 != null) timerPresetRow2.setVisibility(vis);
     }
 
     private LinearLayout pickerWithLabel(NumberPicker p, String label) {
@@ -511,20 +544,25 @@ public final class MainActivity extends Activity {
         long total = sp.getLong(AlarmScheduler.KEY_TIMER_TOTAL, 0);
         if (running) {
             long remain = ClockLogic.timerRemainingMillis(sp.getLong(AlarmScheduler.KEY_TIMER_END, 0), System.currentTimeMillis());
-            timerStartPauseBtn.setText("一時停止");
-            timerPickerRow.setVisibility(View.GONE);
+            if (remain > 0) {
+                timerStartPauseBtn.setText("一時停止");
+                setTimerInputVisibility(View.GONE);
+                updateTimerDisplay(remain, total);
+                return;
+            }
+            // 動作中のはずが残り0以下: 終了状態に正規化してから初期表示へ
+            sp.edit().putBoolean(AlarmScheduler.KEY_TIMER_RUNNING, false)
+                .putLong(AlarmScheduler.KEY_TIMER_REMAINING, 0).apply();
+        }
+        long remain = sp.getLong(AlarmScheduler.KEY_TIMER_REMAINING, 0);
+        if (total > 0 && remain > 0) {
+            timerStartPauseBtn.setText("再開");
+            setTimerInputVisibility(View.GONE);
             updateTimerDisplay(remain, total);
         } else {
-            long remain = sp.getLong(AlarmScheduler.KEY_TIMER_REMAINING, 0);
-            if (total > 0 && remain > 0) {
-                timerStartPauseBtn.setText("再開");
-                timerPickerRow.setVisibility(View.GONE);
-                updateTimerDisplay(remain, total);
-            } else {
-                timerStartPauseBtn.setText("開始");
-                timerPickerRow.setVisibility(View.VISIBLE);
-                updateTimerDisplay(0, 0);
-            }
+            timerStartPauseBtn.setText("開始");
+            setTimerInputVisibility(View.VISIBLE);
+            updateTimerDisplay(0, 0);
         }
     }
 
@@ -570,15 +608,16 @@ public final class MainActivity extends Activity {
             .putLong(AlarmScheduler.KEY_TIMER_REMAINING, remain).apply();
         AlarmScheduler.scheduleTimer(this, end, "タイマー");
         timerStartPauseBtn.setText("一時停止");
-        timerPickerRow.setVisibility(View.GONE);
+        setTimerInputVisibility(View.GONE);
         updateTimerDisplay(remain, total);
     }
 
     private void cancelTimer() {
         AlarmScheduler.cancelTimer(this);
+        AlarmScheduler.cancelSnoozeTimer(this);
         timerPrefs().edit().clear().apply();
         timerStartPauseBtn.setText("開始");
-        timerPickerRow.setVisibility(View.VISIBLE);
+        setTimerInputVisibility(View.VISIBLE);
         updateTimerDisplay(0, 0);
     }
 
@@ -591,9 +630,11 @@ public final class MainActivity extends Activity {
                 sp.getLong(AlarmScheduler.KEY_TIMER_END, 0), System.currentTimeMillis());
             updateTimerDisplay(remain, sp.getLong(AlarmScheduler.KEY_TIMER_TOTAL, 0));
             if (remain <= 0) {
-                // 終了処理は AlarmReceiver → RingActivity が担う。表示だけ初期状態へ戻す準備
+                // 終了処理は AlarmReceiver → RingActivity が担う。状態を終了に正規化し、表示は初期状態へ
+                sp.edit().putBoolean(AlarmScheduler.KEY_TIMER_RUNNING, false)
+                    .putLong(AlarmScheduler.KEY_TIMER_REMAINING, 0).apply();
                 timerStartPauseBtn.setText("開始");
-                timerPickerRow.setVisibility(View.VISIBLE);
+                setTimerInputVisibility(View.VISIBLE);
             }
         }
         handler.postDelayed(timerTick, 200);
@@ -670,6 +711,7 @@ public final class MainActivity extends Activity {
     }
 
     private void onLap() {
+        if (!swRunning) return; // ラップは計測中のみ
         long cum = swElapsed();
         if (cum <= 0) return;
         lapCount++;

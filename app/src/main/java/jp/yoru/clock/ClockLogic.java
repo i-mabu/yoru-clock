@@ -75,15 +75,20 @@ public final class ClockLogic {
         return false;
     }
 
+    /** repeat[idx] を安全に読む: 配列が短い・null の場合、範囲外は false 扱い */
+    public static boolean repeatOn(boolean[] repeat, int idx) {
+        return repeat != null && idx >= 0 && idx < repeat.length && repeat[idx];
+    }
+
     /** 繰り返しの要約表示。なし="1回のみ"、全曜日="毎日"、それ以外は "月・水・金" 形式 */
     public static String repeatSummary(boolean[] repeat) {
         if (!hasRepeat(repeat)) return "1回のみ";
         boolean all = true;
-        for (boolean b : repeat) if (!b) { all = false; break; }
+        for (int i = 0; i < 7; i++) if (!repeatOn(repeat, i)) { all = false; break; }
         if (all) return "毎日";
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 7; i++) {
-            if (repeat[i]) {
+            if (repeatOn(repeat, i)) {
                 if (sb.length() > 0) sb.append("・");
                 sb.append(REPEAT_DAY_NAMES[i]);
             }
@@ -112,7 +117,7 @@ public final class ClockLogic {
             if (cand.getTimeInMillis() <= nowMillis) continue;
             if (!repeating) return cand.getTimeInMillis();
             int idx = repeatIndexForCalendarDow(cand.get(Calendar.DAY_OF_WEEK));
-            if (repeat[idx]) return cand.getTimeInMillis();
+            if (repeatOn(repeat, idx)) return cand.getTimeInMillis();
         }
         // 到達しないはずだが、安全側として翌日同時刻を返す
         Calendar fallback = (Calendar) base.clone();
@@ -209,8 +214,7 @@ public final class ClockLogic {
     /** 残り時間表示: 1時間未満は "MM:SS"、以上は "H:MM:SS" */
     public static String formatDuration(long ms) {
         if (ms < 0) ms = 0;
-        long totalSec = (ms + 999) / 1000; // タイマー表示は切り上げ (残り1msでも 00:01 と見せる場面を避け表示用は下で調整)
-        // ただし 0 は 0 のまま
+        long totalSec = (ms + 999) / 1000; // タイマー表示は切り上げ: 残りが 0 より大きい間は 00:00 にならない (ただし 0 は 0 のまま)
         if (ms == 0) totalSec = 0;
         long h = totalSec / 3600;
         long m = (totalSec % 3600) / 60;
