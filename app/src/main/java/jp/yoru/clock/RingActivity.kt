@@ -1,10 +1,8 @@
 package jp.yoru.clock
 
-import android.app.Activity
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.RingtoneManager
@@ -14,15 +12,26 @@ import android.os.Handler
 import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.view.Gravity
 import android.view.WindowManager
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.util.Calendar
 
-// ===== 1. 鳴動画面 (アラーム/タイマー共通): 音 + バイブ + スヌーズ5分 / 停止 =====
-class RingActivity : Activity() {
+// ===== 1. 鳴動画面 (アラーム/タイマー共通): 音 + バイブ + スヌーズ5分 / 停止 (Jetpack Compose) =====
+class RingActivity : ComponentActivity() {
     private var player: MediaPlayer? = null
     private var vibrator: Vibrator? = null
     private var kind: String = "alarm"
@@ -46,6 +55,7 @@ class RingActivity : Activity() {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
         } else {
+            @Suppress("DEPRECATION")
             window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                 or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
         }
@@ -64,67 +74,52 @@ class RingActivity : Activity() {
         val hour = intent.getIntExtra(AlarmScheduler.EXTRA_HOUR, -1)
         val minute = intent.getIntExtra(AlarmScheduler.EXTRA_MINUTE, -1)
 
-        val timeText: String
-        if (hour >= 0) {
-            timeText = ClockLogic.formatHourMinute(hour, minute)
+        val timeText: String = if (hour >= 0) {
+            ClockLogic.formatHourMinute(hour, minute)
         } else {
             val now = Calendar.getInstance()
-            timeText = ClockLogic.formatHourMinute(now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE))
+            ClockLogic.formatHourMinute(now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE))
         }
         val title = if ("timer" == kind) "タイマー終了" else "アラーム"
         val displayLabel = if (label.isEmpty()) title else label
 
-        val root = LinearLayout(this)
-        root.orientation = LinearLayout.VERTICAL
-        root.gravity = Gravity.CENTER
-        root.setBackgroundColor(Color.parseColor("#0B1026"))
-        root.setPadding(48, 48, 48, 48)
-
-        val titleView = TextView(this)
-        titleView.text = title
-        titleView.setTextColor(Color.parseColor("#8FA8FF"))
-        titleView.textSize = 20f
-        titleView.gravity = Gravity.CENTER
-        root.addView(titleView)
-
-        val timeView = TextView(this)
-        timeView.text = timeText
-        timeView.setTextColor(Color.parseColor("#F2F3FA"))
-        timeView.textSize = 72f
-        timeView.gravity = Gravity.CENTER
-        root.addView(timeView)
-
-        val labelView = TextView(this)
-        labelView.text = displayLabel
-        labelView.setTextColor(Color.parseColor("#FFC46B"))
-        labelView.textSize = 26f
-        labelView.gravity = Gravity.CENTER
-        root.addView(labelView)
-
-        val snooze = Button(this)
-        snooze.text = "スヌーズ（5分）"
-        snooze.textSize = 18f
-        snooze.setOnClickListener {
-            AlarmScheduler.scheduleSnooze(this, kind, alarmId, if (label.isEmpty()) title else label.replace("（スヌーズ）", ""), alarmRc)
-            stopRinging()
-            finish()
+        setContent {
+            // 誤操作防止: 戻るでは閉じない (停止/スヌーズボタンを使う)
+            androidx.activity.compose.BackHandler { }
+            YoruClockTheme {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(NightBg)
+                        .padding(48.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(text = title, color = NightAccent, fontSize = 20.sp, textAlign = TextAlign.Center)
+                    Text(text = timeText, color = NightText, fontSize = 72.sp, textAlign = TextAlign.Center)
+                    Text(text = displayLabel, color = NightGold, fontSize = 26.sp, textAlign = TextAlign.Center)
+                    Button(
+                        onClick = {
+                            AlarmScheduler.scheduleSnooze(
+                                this@RingActivity, kind, alarmId,
+                                if (label.isEmpty()) title else label.replace("（スヌーズ）", ""), alarmRc)
+                            stopRinging()
+                            finish()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 64.dp, bottom = 16.dp)
+                    ) { Text("スヌーズ（5分）", fontSize = 18.sp) }
+                    Button(
+                        onClick = {
+                            stopRinging()
+                            finish()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("停止", fontSize = 20.sp) }
+                }
+            }
         }
-        val bp = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        bp.setMargins(0, 64, 0, 16)
-        root.addView(snooze, bp)
-
-        val stop = Button(this)
-        stop.text = "停止"
-        stop.textSize = 20f
-        stop.setOnClickListener {
-            stopRinging()
-            finish()
-        }
-        root.addView(stop, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-
-        setContentView(root)
         startRinging()
         timeoutHandler.removeCallbacks(ringTimeout)
         timeoutHandler.postDelayed(ringTimeout, AUTO_STOP_MS)
@@ -194,11 +189,6 @@ class RingActivity : Activity() {
             if (nm != null) nm.cancel(notifId)
         }
         super.onDestroy()
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        // 誤操作防止: 戻るでは閉じない (停止/スヌーズボタンを使う)
     }
 
     companion object {

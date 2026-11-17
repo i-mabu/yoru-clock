@@ -1,124 +1,80 @@
 package jp.yoru.clock
 
-import android.app.Activity
-import android.graphics.Color
 import android.os.Bundle
-import android.widget.Button
-import android.widget.CheckBox
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
-import android.widget.TimePicker
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
-// ===== 1. アラーム追加・編集画面 =====
-class AlarmEditActivity : Activity() {
-    private lateinit var timePicker: TimePicker
-    private lateinit var labelEdit: EditText
-    private val dayBoxes = arrayOfNulls<CheckBox>(7)
-    private var editingId: Long = -1
+// ===== 1. アラーム追加・編集画面 (Jetpack Compose) =====
+class AlarmEditActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        editingId = intent.getLongExtra(EXTRA_ID, -1)
-
-        var existing: AlarmItem? = null
-        if (editingId >= 0) {
-            existing = AlarmStore.findById(AlarmStore.load(this), editingId)
-        }
-
-        val root = LinearLayout(this)
-        root.orientation = LinearLayout.VERTICAL
-        root.setBackgroundColor(Color.parseColor("#0B1026"))
-        root.setPadding(40, 40, 40, 40)
-
-        val title = TextView(this)
-        title.text = if (existing == null) "アラームを追加" else "アラームを編集"
-        title.setTextColor(Color.parseColor("#F2F3FA"))
-        title.textSize = 22f
-        root.addView(title)
-
-        timePicker = TimePicker(this)
-        timePicker.setIs24HourView(true)
-        if (existing != null) {
-            timePicker.hour = existing.hour
-            timePicker.minute = existing.minute
-        }
-        root.addView(timePicker)
-
-        val labelTitle = TextView(this)
-        labelTitle.text = "ラベル"
-        labelTitle.setTextColor(Color.parseColor("#9AA3C7"))
-        labelTitle.textSize = 15f
-        root.addView(labelTitle)
-
-        labelEdit = EditText(this)
-        labelEdit.hint = "例: 起床、学校"
-        labelEdit.setTextColor(Color.parseColor("#F2F3FA"))
-        labelEdit.setHintTextColor(Color.parseColor("#5A648C"))
-        if (existing != null) labelEdit.setText(existing.label)
-        root.addView(labelEdit)
-
-        val repeatTitle = TextView(this)
-        repeatTitle.text = "繰り返し（なし = 1回のみ）"
-        repeatTitle.setTextColor(Color.parseColor("#9AA3C7"))
-        repeatTitle.textSize = 15f
-        root.addView(repeatTitle)
-
-        val days = LinearLayout(this)
-        days.orientation = LinearLayout.HORIZONTAL
-        val names = arrayOf("月", "火", "水", "木", "金", "土", "日")
-        for (i in 0 until 7) {
-            dayBoxes[i] = CheckBox(this)
-            dayBoxes[i]!!.text = names[i]
-            dayBoxes[i]!!.setTextColor(Color.parseColor("#F2F3FA"))
-            if (existing != null) dayBoxes[i]!!.isChecked = existing.repeat[i]
-            val lp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            days.addView(dayBoxes[i], lp)
-        }
-        root.addView(days)
-
-        val save = Button(this)
-        save.text = "保存"
-        save.textSize = 18f
-        save.setOnClickListener { saveAndFinish() }
-        val sp = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        sp.setMargins(0, 48, 0, 16)
-        root.addView(save, sp)
-
-        if (existing != null) {
-            val delete = Button(this)
-            delete.text = "削除"
-            delete.setOnClickListener {
-                val items = ArrayList(AlarmStore.load(this))
-                val target = AlarmStore.findById(items, editingId)
-                if (target != null) {
-                    AlarmScheduler.cancelAlarm(this, target)
-                    AlarmScheduler.cancelSnoozeAlarm(this, target.rc)
-                    items.remove(target)
-                    AlarmStore.save(this, items)
-                }
-                Toast.makeText(this, "アラームを削除しました", Toast.LENGTH_SHORT).show()
-                finish()
+        val editingId = intent.getLongExtra(EXTRA_ID, -1)
+        val existing = if (editingId >= 0) AlarmStore.findById(AlarmStore.load(this), editingId) else null
+        setContent {
+            YoruClockTheme {
+                AlarmEditScreen(
+                    editingId = editingId,
+                    existing = existing,
+                    onDone = { finish() }
+                )
             }
-            root.addView(delete)
         }
-
-        val cancel = Button(this)
-        cancel.text = "キャンセル"
-        cancel.setOnClickListener { finish() }
-        root.addView(cancel)
-
-        val scroll = ScrollView(this)
-        scroll.setBackgroundColor(Color.parseColor("#0B1026"))
-        scroll.addView(root)
-        setContentView(scroll)
     }
 
-    private fun saveAndFinish() {
-        val items = ArrayList(AlarmStore.load(this))
+    companion object {
+        const val EXTRA_ID = "edit_id"
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AlarmEditScreen(editingId: Long, existing: AlarmItem?, onDone: () -> Unit) {
+    val context = LocalContext.current
+    // 新規追加時の初期値は現在時刻 (旧 TimePicker の既定動作と同じ)
+    val nowCal = remember { java.util.Calendar.getInstance() }
+    var hour by remember { mutableIntStateOf(existing?.hour ?: nowCal.get(java.util.Calendar.HOUR_OF_DAY)) }
+    var minute by remember { mutableIntStateOf(existing?.minute ?: nowCal.get(java.util.Calendar.MINUTE)) }
+    var label by remember { mutableStateOf(existing?.label ?: "") }
+    val daysChecked = remember {
+        mutableStateListOf<Boolean>().apply {
+            for (i in 0 until 7) add(existing?.repeat?.get(i) ?: false)
+        }
+    }
+    val dayNames = listOf("月", "火", "水", "木", "金", "土", "日")
+
+    fun saveAndFinish() {
+        val items = ArrayList(AlarmStore.load(context))
         val item: AlarmItem
         if (editingId >= 0) {
             val found = AlarmStore.findById(items, editingId)
@@ -136,39 +92,153 @@ class AlarmEditActivity : Activity() {
         } else {
             item = AlarmItem()
             item.id = AlarmStore.newId(items)
-            // 自分を add する前のリストで rc を採番する (既存と重複しない)
             item.rc = AlarmItem.nextRequestCode(items)
             item.enabled = true
             items.add(item)
         }
-        item.hour = timePicker.hour
-        item.minute = timePicker.minute
-        item.label = labelEdit.text.toString().trim { it <= ' ' } // 前後の空白類を除去する (対象は ' ' 以下の文字)
-        for (i in 0 until 7) item.repeat[i] = dayBoxes[i]!!.isChecked
+        item.hour = hour
+        item.minute = minute
+        item.label = label.trim { it <= ' ' } // 前後の空白類を除去する (対象は ' ' 以下の文字)
+        for (i in 0 until 7) item.repeat[i] = daysChecked[i]
         // 時刻順に並べ替えて保存
         items.sortWith { a, b ->
             val t = (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute)
             if (t != 0) t else a.id.compareTo(b.id)
         }
-        AlarmStore.save(this, items)
+        AlarmStore.save(context, items)
         val msg: String
         if (item.enabled) {
-            val trigger = AlarmScheduler.scheduleAlarm(this, item)
+            val trigger = AlarmScheduler.scheduleAlarm(context, item)
             msg = if (trigger > 0)
                 "アラームを設定: " + ClockLogic.describeTrigger(trigger, System.currentTimeMillis())
             else
                 "アラームを保存しました"
         } else {
             // OFF のまま保存されたら登録もスヌーズも取り消す
-            AlarmScheduler.cancelAlarm(this, item)
-            AlarmScheduler.cancelSnoozeAlarm(this, item.rc)
+            AlarmScheduler.cancelAlarm(context, item)
+            AlarmScheduler.cancelSnoozeAlarm(context, item.rc)
             msg = "アラームを保存しました（OFF）"
         }
-        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-        finish()
+        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+        onDone()
     }
 
-    companion object {
-        const val EXTRA_ID = "edit_id"
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(NightBg)
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp)
+    ) {
+        Text(
+            text = if (existing == null) "アラームを追加" else "アラームを編集",
+            color = NightText, fontSize = 22.sp
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TimeDropdown("時", hour, 0..23, Modifier.weight(1f)) { hour = it }
+            Text(":", color = NightText, fontSize = 24.sp, modifier = Modifier.padding(horizontal = 4.dp))
+            TimeDropdown("分", minute, 0..59, Modifier.weight(1f)) { minute = it }
+        }
+        Text(
+            text = "ラベル", color = NightSub, fontSize = 15.sp,
+            modifier = Modifier.padding(top = 20.dp, bottom = 4.dp)
+        )
+        OutlinedTextField(
+            value = label,
+            onValueChange = { label = it },
+            placeholder = { Text("例: 起床、学校", color = NightHint) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "繰り返し（なし = 1回のみ）", color = NightSub, fontSize = 15.sp,
+            modifier = Modifier.padding(top = 20.dp, bottom = 4.dp)
+        )
+        Row(modifier = Modifier.fillMaxWidth()) {
+            for (i in 0 until 7) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Checkbox(
+                        checked = daysChecked[i],
+                        onCheckedChange = { daysChecked[i] = it }
+                    )
+                    Text(dayNames[i], color = NightText, fontSize = 13.sp)
+                }
+            }
+        }
+        Button(
+            onClick = { saveAndFinish() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 32.dp, bottom = 8.dp)
+        ) { Text("保存", fontSize = 18.sp) }
+        if (existing != null) {
+            Button(
+                onClick = {
+                    val items = ArrayList(AlarmStore.load(context))
+                    val target = AlarmStore.findById(items, editingId)
+                    if (target != null) {
+                        AlarmScheduler.cancelAlarm(context, target)
+                        AlarmScheduler.cancelSnoozeAlarm(context, target.rc)
+                        items.remove(target)
+                        AlarmStore.save(context, items)
+                    }
+                    Toast.makeText(context, "アラームを削除しました", Toast.LENGTH_SHORT).show()
+                    onDone()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("削除") }
+        }
+        Button(
+            onClick = { onDone() },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("キャンセル") }
+    }
+}
+
+// ----- 1.1 時刻ドロップダウン (旧 TimePicker の代替、24時間表記) -----
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimeDropdown(
+    label: String,
+    value: Int,
+    range: IntRange,
+    modifier: Modifier = Modifier,
+    onSelect: (Int) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = modifier
+    ) {
+        OutlinedTextField(
+            value = "%02d".format(value),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            for (v in range) {
+                DropdownMenuItem(
+                    text = { Text("%02d".format(v)) },
+                    onClick = {
+                        onSelect(v)
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }

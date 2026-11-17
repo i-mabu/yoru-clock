@@ -1,25 +1,25 @@
 # よる時計 (Yoru Clock) — Android
 
-夜を基調にしたダークテーマの時計アプリ。外部依存ゼロ・完全オフライン（ネットワーク権限なし）。
+夜を基調にしたダークテーマの時計アプリ。UI は Jetpack Compose、完全オフライン（ネットワーク権限なし）。
 
 - パッケージ: `jp.yoru.clock`
-- バージョン: versionCode 4 / versionName 1.1.1
+- バージョン: versionCode 5 / versionName 1.2.0
 - minSdk 26 / targetSdk 34
-- 言語: Kotlin 1.9.23（Android標準APIのみ）
+- 言語: Kotlin 2.0.21 + Jetpack Compose 1.7.6 / Material3 1.3.1（v1.2.0 で従来のView実装から移行）
 
 ## 機能
 
 ### 時計タブ
 - 大きなデジタル時計（HH:mm:ss、1秒の境界に合わせて更新）
 - 日付表示「2026年11月17日（火）」形式
-- アナログ時計カスタムView（目盛り・数字・時針/分針/秒針、秒針は滑らか）
+- アナログ時計（Compose Canvas 描画。目盛り・数字・時針/分針/秒針、秒針は滑らか）
 - 世界時計: 既定で 東京 / ソウル / ロンドン / ニューヨーク / ロサンゼルス / シドニー
   - 現地時刻と日本との時差（例: -9時間）を表示
   - カタログ（全18都市）から追加、長押しで削除。SharedPreferencesに保存
 
 ### アラームタブ
 - 複数アラームの一覧（時刻・ラベル・繰り返し曜日・ON/OFFスイッチ・次回発火表示）
-- 追加/編集画面: TimePicker（24時間）、ラベル、曜日繰り返し（月〜日、なし=単発）、保存/削除
+- 追加/編集画面: 時刻選択（24時間表記ドロップダウン）、ラベル、曜日繰り返し（月〜日、なし=単発）、保存/削除
 - 次回発火計算は純ロジック `ClockLogic.nextTriggerMillis` に分離し単体テスト済み
 - `AlarmManager.setAlarmClock` で発火（正確なアラームの特別権限が不要な方式）
 - 鳴動画面: 全画面寄り表示、時刻とラベル、スヌーズ5分、停止
@@ -31,7 +31,7 @@
 - データは SharedPreferences に JSON（org.json）で保存
 
 ### タイマータブ
-- 時/分/秒 NumberPicker、プリセット 1/3/5/10/15/30/60分
+- 時/分/秒の数値ドロップダウン、プリセット 1/3/5/10/15/30/60分
 - 開始/一時停止/再開/キャンセル、残り時間の大きな表示＋プログレスバー
 - 終了時刻を SharedPreferences に保存し、アプリを閉じても残り時間を復元
 - 終了時は AlarmManager 経由でアプリが閉じていても鳴動画面を表示（アラームと共通）
@@ -42,24 +42,37 @@
 
 ## ビルド方法
 
-Gradle/AGPを使わず、aapt2 + Kotlinコンパイラ + d8 の手動ビルドです。
+Gradle/AGPを使わず、aapt2 + Kotlinコンパイラ（Composeプラグイン）+ R8/D8 の手動ビルドです。
 
 ```sh
 ./build.sh       # テスト → APKビルド → 成果物表示（リリースビルドはこれ1つ）
 ./build-apk.sh   # APKビルドのみ → dist/yoru-clock.apk
 ```
 
+初回のみ、Compose の依存ライブラリとビルド用 jar を取得します（ネットワークが必要）:
+
+```sh
+python3 tools/resolve.py   # libs/ に依存アーティファクト一式を取得
+# あわせて tools/ に次の2つを配置する:
+#   tools/r8-8.7.18.jar (com.android.tools:r8:8.7.18, Google Maven)
+#   tools/kotlin-compose-compiler-plugin-2.0.21.jar (Maven Central)
+```
+
+Compose 化に伴う手動ビルド上の要点:
+- ライブラリ AAR のリソースは aapt2 で compile し、`--auto-add-overlay` と
+  `--extra-packages`（各ライブラリの R クラス生成）でリンクする
+- Compose コンパイラは Maven 版プラグイン jar を `-Xplugin` で渡す
+  （kotlinc 配布物同梱版は embeddable コンパイラ向けで使えない）
+- dex 化は build-tools 同梱 d8 ではなく単体 R8 8.7.18 の D8 を使う
+  （同梱版は lifecycle の匿名内部クラスでクラッシュする）。64k メソッド超のため multidex
+- AAR 内の `.so`（androidx.graphics.path）は `lib/<abi>/` に同梱する
+
 必要環境:
 - JDK（`~/workspace/tools/jdk-21` を想定。コンパイルは jvm-target 17）
-- Kotlin コンパイラ 1.9.23
-  - 入手方法: 公式 GitHub Releases の `kotlin-compiler-1.9.23.zip` を展開し、
-    `KOTLIN_HOME` に展開先（`kotlinc` ディレクトリ）を設定する。または `kotlinc` を PATH に入れる
-  - 代替: Gradle 同梱の embeddable jars（`kotlin-compiler-embeddable-1.9.23.jar` 等）でも
-    ビルド可能。`KOTLIN_EMBEDDABLE_DIR` で場所を指定でき、未指定時は
-    `~/workspace/tools/android/gradle/lib` を探す
-  - 解決の優先順位は `tools/kotlin-env.sh` を参照（KOTLIN_HOME → PATH → embeddable。
-    バージョンが 1.9.23 でない kotlinc は採用しない）
-  - APK には kotlin-stdlib が同梱される（d8 の入力に含める）
+- Kotlin コンパイラ 2.0.21（他のアプリと共有の `~/workspace/tools/kotlin` を想定）
+  - 解決の優先順位は `tools/kotlin-env.sh` を参照（KOTLIN_HOME → 共有ツールチェーン → PATH。
+    バージョンが 2.0.21 でない kotlinc は採用しない）
+  - APK には kotlin-stdlib（2.0.21）が同梱される（dex の入力に含める）
 - Android SDK（`~/workspace/tools/android/sdk`、platforms;android-34、build-tools;34.0.0）
   - `ANDROID_SDK_ROOT` / `ANDROID_HOME` で上書き可能
 - 署名は既定で同梱のデバッグ用キーストア（`debug.keystore`、なければ自動生成）。
@@ -73,7 +86,7 @@ Gradle/AGPを使わず、aapt2 + Kotlinコンパイラ + d8 の手動ビルド�
 純ロジック（アラーム次回発火・時差計算・フォーマット類）の単体テスト:
 
 ```sh
-./tests/run-tests.sh   # 通常パス 66 checks + DSTパス 3 checks
+./tests/run-tests.sh   # 通常パス 68 checks + DSTパス 3 checks
 ```
 
 ## 権限の説明

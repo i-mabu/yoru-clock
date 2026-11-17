@@ -8,6 +8,11 @@ dist/
 *.iml
 .DS_Store
 
+# ===== Compose dependencies (tools/resolve.py で取得する配布物) =====
+libs/
+tools/r8-*.jar
+tools/kotlin-compose-compiler-plugin-*.jar
+
 # ===== Signing (debug keystore is kept at repo root for a stable signature) =====
 *.keystore
 !debug.keystore

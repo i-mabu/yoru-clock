@@ -1,26 +1,22 @@
-# Kotlin コンパイラ 1.9.23 の解決 (build-apk.sh / tests/run-tests.sh 共通)
+# Kotlin コンパイラ 2.0.21 の解決 (build-apk.sh / tests/run-tests.sh 共通)
+# 他のアプリ (aegis-android 等) と同じ共有ツールチェーン ~/workspace/tools/kotlin を使う。
 # 優先順位: (1) $KOTLIN_HOME/bin/kotlinc (明示指定を最優先)
-#           (2) PATH 上の kotlinc (シンボリックリンクを解決して stdlib を探す)
-#           (3) embeddable jars
-#   (2) で stdlib が特定できない場合はエラーにせず次の候補へ進む
-#   (CI ランナーには素性不明の kotlinc が /usr/bin にあることがあり、
-#    それに引きずられて落ちるのを防ぐため)。
-#   embeddable jars は $KOTLIN_EMBEDDABLE_DIR があればそこ、なければ
-#   ~/workspace/tools/android/gradle/lib (Gradle 8.9 同梱) を探す。
+#           (2) ~/workspace/tools/kotlin/bin/kotlinc (共有ツールチェーン)
+#           (3) PATH 上の kotlinc (シンボリックリンクを解決して stdlib を探す)
+#   バージョンが 2.0.21 でない kotlinc は採用しない (次の候補へ進む)。
 # 提供するもの:
 #   KOTLIN_STDLIB_JAR : kotlin-stdlib jar のパス (d8 / 実行時 classpath 用)
+#   KOTLINC_BIN       : kotlinc のパス
 #   kotlin_compile <out_dir> <extra_classpath> <source...> : Kotlin (+混在する Java) を一括コンパイル
+#     環境変数 KOTLIN_COMPOSE_PLUGIN_JAR が設定されていれば -Xplugin で Compose コンパイラを有効化する
 # このファイルは source して使う。見つからない場合は分かりやすいエラーを出して非ゼロで戻る。
 
-KOTLIN_VERSION="1.9.23"
-KOTLIN_MODE=""
+KOTLIN_VERSION="2.0.21"
 KOTLINC_BIN=""
-KOTLIN_EMBEDDABLE_CP=""
 KOTLIN_STDLIB_JAR=""
 
 # ===== 1. 解決処理とコンパイル =====
 # ----- 1.1 kotlinc 候補の検証 -----
-# kotlinc バイナリ候補を検証し、使えるなら KOTLIN_MODE 等を設定して 0 を返す
 _try_kotlinc() {
     local kc="$1"
     [ -x "$kc" ] || return 1
@@ -31,12 +27,8 @@ _try_kotlinc() {
     for cand in \
         "$home/lib/kotlin-stdlib.jar" \
         "$home"/lib/kotlin-stdlib-*.jar \
-        "$home/share/kotlin/lib/kotlin-stdlib.jar" \
-        "$dir/../share/kotlin/lib/kotlin-stdlib.jar" \
-        "/usr/share/kotlin/lib/kotlin-stdlib.jar" \
-        "/usr/share/java/kotlin-stdlib.jar"; do
+        "$home/share/kotlin/lib/kotlin-stdlib.jar"; do
         if [ -f "$cand" ]; then
-            # バージョンが想定 (1.9.23) と違う kotlinc は採用しない (次の候補へ進む)
             local ver
             ver="$("$kc" -version 2>&1 | head -1)"
             case "$ver" in
@@ -44,7 +36,6 @@ _try_kotlinc() {
                 *) return 1 ;;
             esac
             KOTLIN_STDLIB_JAR="$cand"
-            KOTLIN_MODE="kotlinc"
             KOTLINC_BIN="$kc"
             return 0
         fi
@@ -57,40 +48,17 @@ _kotlin_resolve() {
     if [ -n "${KOTLIN_HOME:-}" ] && _try_kotlinc "$KOTLIN_HOME/bin/kotlinc"; then
         return 0
     fi
-    if command -v kotlinc >/dev/null 2>&1 && _try_kotlinc "$(command -v kotlinc)"; then
+    if _try_kotlinc "$HOME/workspace/tools/kotlin/bin/kotlinc"; then
         return 0
     fi
-    local dir=""
-    if [ -n "${KOTLIN_EMBEDDABLE_DIR:-}" ] && [ -f "$KOTLIN_EMBEDDABLE_DIR/kotlin-compiler-embeddable-$KOTLIN_VERSION.jar" ]; then
-        dir="$KOTLIN_EMBEDDABLE_DIR"
-    elif [ -f "$HOME/workspace/tools/android/gradle/lib/kotlin-compiler-embeddable-$KOTLIN_VERSION.jar" ]; then
-        dir="$HOME/workspace/tools/android/gradle/lib"
-    fi
-    if [ -n "$dir" ]; then
-        local jars=(
-            "$dir/kotlin-compiler-embeddable-$KOTLIN_VERSION.jar"
-            "$dir/trove4j-1.0.20200330.jar"
-            "$dir/annotations-24.0.1.jar"
-            "$dir/kotlin-stdlib-$KOTLIN_VERSION.jar"
-            "$dir/kotlin-daemon-embeddable-$KOTLIN_VERSION.jar"
-        )
-        local j
-        for j in "${jars[@]}"; do
-            if [ ! -f "$j" ]; then
-                echo "エラー: embeddable コンパイラ用 jar が不足しています: $j" >&2
-                return 1
-            fi
-        done
-        KOTLIN_EMBEDDABLE_CP="$(IFS=:; echo "${jars[*]}")"
-        KOTLIN_STDLIB_JAR="$dir/kotlin-stdlib-$KOTLIN_VERSION.jar"
-        KOTLIN_MODE="embeddable"
+    if command -v kotlinc >/dev/null 2>&1 && _try_kotlinc "$(command -v kotlinc)"; then
         return 0
     fi
     echo "エラー: Kotlin コンパイラ $KOTLIN_VERSION が見つかりません。" >&2
     echo "  対処のいずれかを行ってください:" >&2
     echo "    - KOTLIN_HOME に Kotlin $KOTLIN_VERSION のインストール先を設定する" >&2
+    echo "    - 共有ツールチェーン ~/workspace/tools/kotlin を用意する" >&2
     echo "    - kotlinc ($KOTLIN_VERSION) を PATH に入れる" >&2
-    echo "    - KOTLIN_EMBEDDABLE_DIR に kotlin-compiler-embeddable-$KOTLIN_VERSION.jar 等のあるディレクトリを指定する" >&2
     return 1
 }
 
@@ -106,12 +74,9 @@ kotlin_compile() {
     mkdir -p "$out"
     local fullcp="$KOTLIN_STDLIB_JAR"
     if [ -n "$cp" ]; then fullcp="$fullcp:$cp"; fi
-    if [ "$KOTLIN_MODE" = "kotlinc" ]; then
-        "$KOTLINC_BIN" -no-stdlib -no-reflect -jvm-target 17 -cp "$fullcp" -d "$out" "$@"
-    else
-        local java_bin="${JAVA_HOME:+$JAVA_HOME/bin/}java"
-        command -v "$java_bin" >/dev/null 2>&1 || java_bin="java"
-        "$java_bin" -cp "$KOTLIN_EMBEDDABLE_CP" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \
-            -no-stdlib -no-reflect -jvm-target 17 -cp "$fullcp" -d "$out" "$@"
+    local plugin_args=()
+    if [ -n "${KOTLIN_COMPOSE_PLUGIN_JAR:-}" ]; then
+        plugin_args=(-Xplugin="$KOTLIN_COMPOSE_PLUGIN_JAR")
     fi
+    "$KOTLINC_BIN" -no-stdlib -no-reflect -jvm-target 17 -cp "$fullcp" -d "$out" "${plugin_args[@]}" "$@"
 }

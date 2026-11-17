@@ -24,12 +24,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Install Kotlin compiler 1.9.23
+      - name: Install Kotlin compiler 2.0.21
         run: |
-          curl -fsSL -o /tmp/kotlin-compiler-1.9.23.zip "https://github.com/JetBrains/kotlin/releases/download/v1.9.23/kotlin-compiler-1.9.23.zip"
-          echo "93137d3aab9afa9b27cb06a824c2324195c6b6f6179d8a8653f440f5bd58be88  /tmp/kotlin-compiler-1.9.23.zip" | sha256sum -c -
-          unzip -q /tmp/kotlin-compiler-1.9.23.zip -d /tmp
+          curl -fsSL -o /tmp/kotlin-compiler-2.0.21.zip "https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip"
+          unzip -q /tmp/kotlin-compiler-2.0.21.zip -d /tmp
           echo "KOTLIN_HOME=/tmp/kotlinc" >> "$GITHUB_ENV"
+      - name: Fetch Compose dependencies and build tools
+        run: |
+          python3 tools/resolve.py
+          curl -fsSL -o tools/r8-8.7.18.jar "https://dl.google.com/dl/android/maven2/com/android/tools/r8/8.7.18/r8-8.7.18.jar"
+          curl -fsSL -o tools/kotlin-compose-compiler-plugin-2.0.21.jar "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-compose-compiler-plugin/2.0.21/kotlin-compose-compiler-plugin-2.0.21.jar"
       - name: Run unit tests (pure logic, no network)
         run: |
           chmod +x tests/run-tests.sh build-apk.sh
@@ -46,8 +50,8 @@ jobs:
           set -o pipefail
           BADGING="$("$ANDROID_HOME/build-tools/34.0.0/aapt2" dump badging dist/yoru-clock.apk)"
           echo "$BADGING" | head -5
-          echo "$BADGING" | grep -q "versionCode='4'"
-          echo "$BADGING" | grep -q "versionName='1.1.1'"
+          echo "$BADGING" | grep -q "versionCode='5'"
+          echo "$BADGING" | grep -q "versionName='1.2.0'"
           for p in RECEIVE_BOOT_COMPLETED VIBRATE POST_NOTIFICATIONS USE_FULL_SCREEN_INTENT; do
             echo "$BADGING" | grep -q "android.permission.$p"
           done
