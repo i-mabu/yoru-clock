@@ -66,7 +66,7 @@ class MainActivity : Activity() {
     private lateinit var lapContainer: LinearLayout
     private lateinit var swStartPauseBtn: Button
     private var swRunning = false
-    private var swBase: Long = 0        // 開始時点の elapsedRealtime - 蓄積分
+    private var swBase: Long = 0        // 計測基準 (開始時に elapsedRealtime() - 蓄積分 を代入)
     private var swAccumulated: Long = 0 // 一時停止までの累計
     private var swLastLapCum: Long = 0
     private var lapCount = 0
@@ -161,7 +161,7 @@ class MainActivity : Activity() {
         return l
     }
 
-    // ===== 時計タブ =====
+    // ===== 1. 時計タブ =====
     private fun buildClockPanel(): View {
         val l = basePanel()
 
@@ -337,7 +337,7 @@ class MainActivity : Activity() {
         handler.postDelayed(clockTick, delay)
     }
 
-    // ===== アラームタブ =====
+    // ===== 2. アラームタブ =====
     private fun buildAlarmPanel(): View {
         val l = basePanel()
         val title = makeText("アラーム", 20f, ACCENT)
@@ -425,7 +425,7 @@ class MainActivity : Activity() {
         }
     }
 
-    // ===== タイマータブ =====
+    // ===== 3. タイマータブ =====
     private fun buildTimerPanel(): View {
         val l = basePanel()
         val title = makeText("タイマー", 20f, ACCENT)
@@ -628,7 +628,7 @@ class MainActivity : Activity() {
         handler.postDelayed(timerTick, 200)
     }
 
-    // ===== ストップウォッチタブ =====
+    // ===== 4. ストップウォッチタブ =====
     private fun buildStopwatchPanel(): View {
         val l = basePanel()
         val title = makeText("ストップウォッチ", 20f, ACCENT)
@@ -726,7 +726,7 @@ class MainActivity : Activity() {
         handler.postDelayed(swTick, 31)
     }
 
-    // ===== ライフサイクル =====
+    // ===== 5. ライフサイクル =====
     override fun onResume() {
         super.onResume()
         handler.removeCallbacks(clockTick)

@@ -12,7 +12,7 @@ import android.widget.TextView
 import android.widget.TimePicker
 import android.widget.Toast
 
-// ===== アラーム追加・編集画面 =====
+// ===== 1. アラーム追加・編集画面 =====
 class AlarmEditActivity : Activity() {
     private lateinit var timePicker: TimePicker
     private lateinit var labelEdit: EditText
@@ -132,7 +132,7 @@ class AlarmEditActivity : Activity() {
             } else {
                 item = found
             }
-            // 既存アラームの編集では enabled (ON/OFF) を保持する
+            // 編集時は既存の enabled (ON/OFF) をそのまま保持する (ここでは変更しない)
         } else {
             item = AlarmItem()
             item.id = AlarmStore.newId(items)
@@ -143,7 +143,7 @@ class AlarmEditActivity : Activity() {
         }
         item.hour = timePicker.hour
         item.minute = timePicker.minute
-        item.label = labelEdit.text.toString().trim { it <= ' ' } // Java の String.trim() と同じ規則
+        item.label = labelEdit.text.toString().trim { it <= ' ' } // 前後の空白類を除去する (対象は ' ' 以下の文字)
         for (i in 0 until 7) item.repeat[i] = dayBoxes[i]!!.isChecked
         // 時刻順に並べ替えて保存
         items.sortWith { a, b ->

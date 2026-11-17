@@ -26,9 +26,12 @@ BUILD=build/manual
 rm -rf "$BUILD"
 mkdir -p "$BUILD/gen" "$BUILD/classes" "$BUILD/dex"
 
+# ===== 1. ビルド手順 =====
+# ----- 1.1 aapt2 compile -----
 echo "[1/6] aapt2 compile"
 "$BT/aapt2" compile --dir app/src/main/res -o "$BUILD/compiled.zip"
 
+# ----- 1.2 aapt2 link -----
 echo "[2/6] aapt2 link"
 # 手動ビルドでは manifest に package 属性が要るため、一時コピーに注入して使う
 # (ソース側の manifest は AGP の namespace 方式に合わせて package 属性なしのまま)
@@ -38,6 +41,7 @@ sed 's|<manifest xmlns:android="http://schemas.android.com/apk/res/android"|<man
   --manifest "$BUILD/AndroidManifest.xml" "$BUILD/compiled.zip" \
   --java "$BUILD/gen" --min-sdk-version 26 --target-sdk-version 34
 
+# ----- 1.3 Kotlin compile -----
 echo "[3/6] Kotlin compile (R.java との mixed compilation)"
 SOURCES=()
 while IFS= read -r f; do SOURCES+=("$f"); done < <(find app/src/main/java -name '*.kt' | sort)
@@ -51,14 +55,17 @@ if [ "${#GEN_JAVA[@]}" -gt 0 ]; then
   "$JAVAC" --release 17 -encoding UTF-8 -cp "$AJAR" -d "$BUILD/classes" "${GEN_JAVA[@]}"
 fi
 
+# ----- 1.4 d8 -----
 echo "[4/6] d8 (kotlin-stdlib を含める)"
 "$BT/d8" --min-api 26 --output "$BUILD/dex" $(find "$BUILD/classes" -name '*.class') "$KOTLIN_STDLIB_JAR"
 
+# ----- 1.5 package + zipalign -----
 echo "[5/6] package + zipalign"
 cp "$BUILD/app-unsigned.apk" "$BUILD/app-with-dex.apk"
 ( cd "$BUILD/dex" && zip -q -uj ../app-with-dex.apk classes.dex )
 "$BT/zipalign" -f -p 4 "$BUILD/app-with-dex.apk" "$BUILD/app-aligned.apk"
 
+# ----- 1.6 sign -----
 echo "[6/6] sign (debug keystore)"
 KS="debug.keystore"
 if [ ! -f "$KS" ]; then

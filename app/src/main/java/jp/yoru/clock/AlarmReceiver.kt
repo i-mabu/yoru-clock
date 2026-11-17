@@ -9,7 +9,7 @@ import android.content.Context
 import android.content.Intent
 import java.util.Calendar
 
-// ===== 発火用レシーバー: 高優先度通知 (full-screen intent) を主経路に鳴動画面を出し、単発アラームはOFFにする =====
+// ===== 1. 発火用レシーバー: 高優先度通知 (full-screen intent) を主経路に鳴動画面を出し、単発アラームはOFFにする =====
 class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -73,6 +73,7 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
+    // ----- 1.1 鳴動通知の投稿 -----
     private fun postNotification(context: Context, kind: String, label: String?,
                                  hour: Int, minute: Int, notifId: Int, ringPi: PendingIntent) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return

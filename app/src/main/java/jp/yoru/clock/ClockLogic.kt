@@ -242,6 +242,7 @@ object ClockLogic {
         return "%02d:%02d".format(Locale.US, hour, minute)
     }
 
+    // ----- 1.8 次回発火の説明文と都市リスト検証 -----
     /** 次回発火の説明文。例: "明日 07:30" / "今日 21:00" / "11月24日（火） 07:00" */
     fun describeTrigger(triggerMillis: Long, nowMillis: Long): String {
         val t = Calendar.getInstance()

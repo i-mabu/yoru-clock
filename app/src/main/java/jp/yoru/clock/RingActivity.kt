@@ -21,7 +21,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import java.util.Calendar
 
-// ===== 鳴動画面 (アラーム/タイマー共通): 音 + バイブ + スヌーズ5分 / 停止 =====
+// ===== 1. 鳴動画面 (アラーム/タイマー共通): 音 + バイブ + スヌーズ5分 / 停止 =====
 class RingActivity : Activity() {
     private var player: MediaPlayer? = null
     private var vibrator: Vibrator? = null
@@ -141,6 +141,7 @@ class RingActivity : Activity() {
         recreate()
     }
 
+    // ----- 1.1 鳴動の開始と停止 -----
     private fun startRinging() {
         // デフォルトアラーム音 → なければ通知音
         var uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)

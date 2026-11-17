@@ -18,6 +18,8 @@ KOTLINC_BIN=""
 KOTLIN_EMBEDDABLE_CP=""
 KOTLIN_STDLIB_JAR=""
 
+# ===== 1. 解決処理とコンパイル =====
+# ----- 1.1 kotlinc 候補の検証 -----
 # kotlinc バイナリ候補を検証し、使えるなら KOTLIN_MODE 等を設定して 0 を返す
 _try_kotlinc() {
     local kc="$1"
@@ -43,6 +45,7 @@ _try_kotlinc() {
     return 1
 }
 
+# ----- 1.2 コンパイラの解決 -----
 _kotlin_resolve() {
     if [ -n "${KOTLIN_HOME:-}" ] && _try_kotlinc "$KOTLIN_HOME/bin/kotlinc"; then
         return 0
@@ -88,6 +91,7 @@ if ! _kotlin_resolve; then
     return 1 2>/dev/null || exit 1
 fi
 
+# ----- 1.3 コンパイル -----
 kotlin_compile() {
     local out="$1"
     local cp="$2"

@@ -5,7 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 
-// ===== AlarmManager への登録 (setAlarmClock 優先で正確アラーム権限問題を回避) =====
+// ===== 1. AlarmManager への登録 (setAlarmClock を使い、正確アラーム権限なしで正確に発火させる) =====
 // PendingIntent の requestCode 帯域:
 //   アラーム本体: AlarmItem.rc (連番, 1〜) / スヌーズ: 600000+rc (タイマーは 600999)
 //   通知ID: 700000+rc (タイマーは 700999) / タイマー本体: 900001
@@ -82,7 +82,7 @@ object AlarmScheduler {
         am.cancel(alarmPendingIntent(ctx, item))
     }
 
-    // ----- タイマー -----
+    // ----- 1.1 タイマー -----
     private fun timerPendingIntent(ctx: Context, label: String?): PendingIntent {
         val intent = Intent(ctx, AlarmReceiver::class.java)
         intent.putExtra(EXTRA_KIND, "timer")
@@ -104,7 +104,7 @@ object AlarmScheduler {
         am.cancel(timerPendingIntent(ctx, "タイマー"))
     }
 
-    // ----- スヌーズ (5分後)。本体と requestCode を分離し、アラーム/タイマー間で上書きしない -----
+    // ----- 1.2 スヌーズ (5分後)。本体と requestCode を分離し、アラーム/タイマー間で上書きしない -----
     fun scheduleSnooze(ctx: Context, kind: String?, alarmId: Long, label: String?, rc: Int) {
         val am = ctx.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val trigger = System.currentTimeMillis() + 5L * 60L * 1000L

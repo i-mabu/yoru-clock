@@ -4,11 +4,12 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 
-// ===== アラームの永続化 (SharedPreferences + org.json) =====
+// ===== 1. アラームの永続化 (SharedPreferences + org.json) =====
 object AlarmStore {
     private const val PREFS = "alarms"
     private const val KEY_JSON = "alarms_json"
 
+    // ----- 1.1 読み込み -----
     fun load(ctx: Context): MutableList<AlarmItem> {
         val out = ArrayList<AlarmItem>()
         val sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -60,6 +61,7 @@ object AlarmStore {
         return out
     }
 
+    // ----- 1.2 保存 -----
     fun save(ctx: Context, items: List<AlarmItem>) {
         try {
             val arr = JSONArray()
@@ -84,6 +86,7 @@ object AlarmStore {
         }
     }
 
+    // ----- 1.3 検索と新規ID -----
     fun findById(items: List<AlarmItem>, id: Long): AlarmItem? {
         for (item in items) if (item.id == id) return item
         return null

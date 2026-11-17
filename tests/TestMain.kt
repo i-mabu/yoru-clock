@@ -7,6 +7,7 @@ import java.util.TimeZone
 // 実行: tests/run-tests.sh
 // 基準日: 2026-11-17 (火)
 object TestMain {
+    // ===== 1. テストハーネス =====
     private var passed = 0
 
     private fun check(cond: Boolean, name: String) {
@@ -55,7 +56,7 @@ object TestMain {
         println("ALL TESTS PASSED: " + passed + " checks")
     }
 
-    // ----- アラーム次回発火 -----
+    // ===== 2. アラーム次回発火 =====
     private fun testNextTrigger() {
         val tue0800 = at(2026, 11, 17, 8, 0) // 2026-11-17 は火曜
         val probe = Calendar.getInstance()
@@ -116,7 +117,7 @@ object TestMain {
         eq(ClockLogic.describeTrigger(at(2026, 11, 24, 7, 0), tue0800), "11月24日（火） 07:00", "describe next week")
     }
 
-    // ----- 世界時計の時差 (2026年11月 = ロンドンGMT / NY EST / シドニーAEDT) -----
+    // ===== 3. 世界時計の時差 (2026年11月 = ロンドンGMT / NY EST / シドニーAEDT) =====
     private fun testOffset() {
         // JVMのデフォルトTZに依存しないよう、東京TZで 2026-11-17 12:00 の瞬間を作る
         val tokyoCal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"))
@@ -149,7 +150,7 @@ object TestMain {
         eq(ClockLogic.formatOffset(-3.5), "-3.5時間", "formatOffset -3.5")
     }
 
-    // ----- requestCode 採番 / 短い repeat 配列の安全性 -----
+    // ===== 4. requestCode 採番 / 短い repeat 配列の安全性 =====
     private fun testRequestCodeAndShortRepeat() {
         // nextRequestCode: 空 → 1
         check(AlarmItem.nextRequestCode(ArrayList()) == 1, "nextRequestCode empty -> 1")
@@ -173,7 +174,7 @@ object TestMain {
         eq(ClockLogic.repeatSummary(BooleanArray(3)), "1回のみ", "repeatSummary short array safe")
     }
 
-    // ----- DST パス: 春の前進で存在しない壁時刻 (America/New_York 前提で実行) -----
+    // ===== 5. DST パス: 春の前進で存在しない壁時刻 (America/New_York 前提で実行) =====
     private fun testDstSpringForward() {
         // 2026-03-08 は spring forward: 02:00 EST → 03:00 EDT に跳び、02:30 は存在しない。
         // 実験確認済み: java.util.Calendar は存在しない壁時刻を lenient に解決し、
@@ -195,7 +196,7 @@ object TestMain {
             "DST resolved offset is EDT (-4h)")
     }
 
-    // ----- フォーマット類 -----
+    // ===== 6. フォーマット類 =====
     private fun testFormats() {
         // 日付 (日本語)
         val c = Calendar.getInstance()

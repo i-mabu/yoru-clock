@@ -11,7 +11,7 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-// ===== アナログ時計カスタムView (目盛り・時針・分針・秒針) =====
+// ===== 1. アナログ時計カスタムView (目盛り・時針・分針・秒針) =====
 class AnalogClockView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null

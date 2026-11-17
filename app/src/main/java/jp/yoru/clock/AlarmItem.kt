@@ -1,6 +1,6 @@
 package jp.yoru.clock
 
-// ===== アラーム1件のデータ (Android非依存) =====
+// ===== 1. アラーム1件のデータ (Android非依存) =====
 class AlarmItem {
     var id: Long = 0
     var hour: Int = 0
@@ -51,6 +51,7 @@ class AlarmItem {
         return c
     }
 
+    // ----- 1.1 requestCode の採番 -----
     companion object {
         /** 次に使う requestCode: 既存の最大 rc + 1 (なければ 1) */
         fun nextRequestCode(items: List<AlarmItem>?): Int {
