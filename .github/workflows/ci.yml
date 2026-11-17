@@ -24,6 +24,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Install Kotlin compiler 1.9.23
+        run: |
+          curl -sSL -o /tmp/kotlin-compiler-1.9.23.zip "https://github.com/JetBrains/kotlin/releases/download/v1.9.23/kotlin-compiler-1.9.23.zip"
+          unzip -q /tmp/kotlin-compiler-1.9.23.zip -d /tmp
+          echo "KOTLIN_HOME=/tmp/kotlinc" >> "$GITHUB_ENV"
       - name: Run unit tests (pure logic, no network)
         run: |
           chmod +x tests/run-tests.sh build-apk.sh

@@ -3,9 +3,9 @@
 夜を基調にしたダークテーマの時計アプリ。外部依存ゼロ・完全オフライン（ネットワーク権限なし）。
 
 - パッケージ: `jp.yoru.clock`
-- バージョン: versionCode 2 / versionName 1.0.1
+- バージョン: versionCode 3 / versionName 1.1.0
 - minSdk 26 / targetSdk 34
-- 言語: Java（Android標準APIのみ）
+- 言語: Kotlin 1.9.23（Android標準APIのみ）
 
 ## 機能
 
@@ -42,14 +42,22 @@
 
 ## ビルド方法
 
-Gradle/AGPを使わず、aapt2 + javac + d8 の手動ビルドです。
+Gradle/AGPを使わず、aapt2 + Kotlinコンパイラ + d8 の手動ビルドです。
 
 ```sh
 ./build-apk.sh   # → dist/yoru-clock.apk
 ```
 
 必要環境:
-- JDK（`~/workspace/tools/jdk-21` を想定。コンパイルは `--release 17`）
+- JDK（`~/workspace/tools/jdk-21` を想定。コンパイルは jvm-target 17）
+- Kotlin コンパイラ 1.9.23
+  - 入手方法: 公式 GitHub Releases の `kotlin-compiler-1.9.23.zip` を展開し、
+    `KOTLIN_HOME` に展開先（`kotlinc` ディレクトリ）を設定する。または `kotlinc` を PATH に入れる
+  - 代替: Gradle 同梱の embeddable jars（`kotlin-compiler-embeddable-1.9.23.jar` 等）でも
+    ビルド可能。`KOTLIN_EMBEDDABLE_DIR` で場所を指定でき、未指定時は
+    `~/workspace/tools/android/gradle/lib` を探す
+  - 解決の優先順位は `tools/kotlin-env.sh` を参照（PATH → KOTLIN_HOME → embeddable）
+  - APK には kotlin-stdlib が同梱される（d8 の入力に含める）
 - Android SDK（`~/workspace/tools/android/sdk`、platforms;android-34、build-tools;34.0.0）
   - `ANDROID_SDK_ROOT` / `ANDROID_HOME` で上書き可能
 - 署名は自動生成されるデバッグ用キーストア（`debug.keystore`）

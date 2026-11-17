@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# よる時計 (Yoru Clock) - オフライン手動ビルド (Gradle/AGPを使わず aapt2 + javac + d8 でAPKを作る)
-# 必要: JDK (~/workspace/tools/jdk-21, --release 17 でコンパイル) と Android SDK (platforms;android-34, build-tools;34.0.0)
+# よる時計 (Yoru Clock) - オフライン手動ビルド (Gradle/AGPを使わず aapt2 + Kotlinコンパイル + d8 でAPKを作る)
+# 必要: JDK (~/workspace/tools/jdk-21, jvm-target 17 でコンパイル)、Kotlin コンパイラ 1.9.23
+#       (解決方法は tools/kotlin-env.sh を参照)、Android SDK (platforms;android-34, build-tools;34.0.0)
 set -euo pipefail
 cd "$(dirname "$0")"
 export LANG="${LANG:-C.UTF-8}" LC_ALL="${LC_ALL:-C.UTF-8}"
 export JAVA_HOME="${JAVA_HOME:-$HOME/workspace/tools/jdk-21}"
 export PATH="$JAVA_HOME/bin:$PATH" # d8 等が java を PATH から探すため
+
+# Kotlin コンパイラ解決 (KOTLIN_STDLIB_JAR と kotlin_compile を提供する)
+. "$(dirname "$0")/tools/kotlin-env.sh"
 
 SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/workspace/tools/android/sdk}}"
 BT="$SDK/build-tools/34.0.0"
@@ -34,12 +38,21 @@ sed 's|<manifest xmlns:android="http://schemas.android.com/apk/res/android"|<man
   --manifest "$BUILD/AndroidManifest.xml" "$BUILD/compiled.zip" \
   --java "$BUILD/gen" --min-sdk-version 26 --target-sdk-version 34
 
-echo "[3/6] javac"
-find app/src/main/java "$BUILD/gen" -name '*.java' > "$BUILD/sources.txt"
-"$JAVAC" --release 17 -encoding UTF-8 -cp "$AJAR" -d "$BUILD/classes" @"$BUILD/sources.txt"
+echo "[3/6] Kotlin compile (R.java との mixed compilation)"
+SOURCES=()
+while IFS= read -r f; do SOURCES+=("$f"); done < <(find app/src/main/java -name '*.kt' | sort)
+while IFS= read -r f; do SOURCES+=("$f"); done < <(find "$BUILD/gen" -name '*.java' | sort)
+kotlin_compile "$BUILD/classes" "$AJAR" "${SOURCES[@]}"
+# K2JVMCompiler は Java ソースをシンボル解決に使うだけでバイトコードを出さないため、
+# aapt2 生成の R.java は javac でもコンパイルして classes に含める (旧 Java ビルドと同内容にする)
+GEN_JAVA=()
+while IFS= read -r f; do GEN_JAVA+=("$f"); done < <(find "$BUILD/gen" -name '*.java' | sort)
+if [ "${#GEN_JAVA[@]}" -gt 0 ]; then
+  "$JAVAC" --release 17 -encoding UTF-8 -cp "$AJAR" -d "$BUILD/classes" "${GEN_JAVA[@]}"
+fi
 
-echo "[4/6] d8"
-"$BT/d8" --min-api 26 --output "$BUILD/dex" $(find "$BUILD/classes" -name '*.class')
+echo "[4/6] d8 (kotlin-stdlib を含める)"
+"$BT/d8" --min-api 26 --output "$BUILD/dex" $(find "$BUILD/classes" -name '*.class') "$KOTLIN_STDLIB_JAR"
 
 echo "[5/6] package + zipalign"
 cp "$BUILD/app-unsigned.apk" "$BUILD/app-with-dex.apk"
