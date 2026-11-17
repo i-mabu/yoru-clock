@@ -45,7 +45,8 @@
 Gradle/AGPを使わず、aapt2 + Kotlinコンパイラ + d8 の手動ビルドです。
 
 ```sh
-./build-apk.sh   # → dist/yoru-clock.apk
+./build.sh       # テスト → APKビルド → 成果物表示（リリースビルドはこれ1つ）
+./build-apk.sh   # APKビルドのみ → dist/yoru-clock.apk
 ```
 
 必要環境:
@@ -56,11 +57,14 @@ Gradle/AGPを使わず、aapt2 + Kotlinコンパイラ + d8 の手動ビルド�
   - 代替: Gradle 同梱の embeddable jars（`kotlin-compiler-embeddable-1.9.23.jar` 等）でも
     ビルド可能。`KOTLIN_EMBEDDABLE_DIR` で場所を指定でき、未指定時は
     `~/workspace/tools/android/gradle/lib` を探す
-  - 解決の優先順位は `tools/kotlin-env.sh` を参照（PATH → KOTLIN_HOME → embeddable）
+  - 解決の優先順位は `tools/kotlin-env.sh` を参照（KOTLIN_HOME → PATH → embeddable。
+    バージョンが 1.9.23 でない kotlinc は採用しない）
   - APK には kotlin-stdlib が同梱される（d8 の入力に含める）
 - Android SDK（`~/workspace/tools/android/sdk`、platforms;android-34、build-tools;34.0.0）
   - `ANDROID_SDK_ROOT` / `ANDROID_HOME` で上書き可能
-- 署名は自動生成されるデバッグ用キーストア（`debug.keystore`）
+- 署名は既定で同梱のデバッグ用キーストア（`debug.keystore`、なければ自動生成）。
+  自分の鍵で署名する場合は環境変数 `YORU_CLOCK_KEYSTORE` / `YORU_CLOCK_KEYSTORE_PASS` /
+  `YORU_CLOCK_KEY_ALIAS` / `YORU_CLOCK_KEY_PASS` で指定する
 
 ## テスト
 

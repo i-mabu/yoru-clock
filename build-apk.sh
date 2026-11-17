@@ -69,14 +69,25 @@ cp "$BUILD/app-unsigned.apk" "$BUILD/app-with-dex.apk"
 "$BT/zipalign" -f -p 4 "$BUILD/app-with-dex.apk" "$BUILD/app-aligned.apk"
 
 # ----- 1.6 sign -----
-echo "[6/6] sign (debug keystore)"
-KS="debug.keystore"
+# 既定は同梱の debug.keystore。自分の鍵で署名する場合は環境変数で指定する
+# (YORU_CLOCK_KEYSTORE / YORU_CLOCK_KEYSTORE_PASS / YORU_CLOCK_KEY_ALIAS / YORU_CLOCK_KEY_PASS)
+echo "[6/6] sign"
+KS="${YORU_CLOCK_KEYSTORE:-debug.keystore}"
+KS_PASS="${YORU_CLOCK_KEYSTORE_PASS:-android}"
+KEY_ALIAS="${YORU_CLOCK_KEY_ALIAS:-androiddebugkey}"
+KEY_PASS="${YORU_CLOCK_KEY_PASS:-$KS_PASS}"
 if [ ! -f "$KS" ]; then
-  "$KEYTOOL" -genkeypair -keystore "$KS" -storepass android -keypass android \
-    -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
-    -dname "CN=Android Debug,O=YoruClock,C=JP" >/dev/null 2>&1
+  if [ "$KS" = "debug.keystore" ]; then
+    "$KEYTOOL" -genkeypair -keystore "$KS" -storepass android -keypass android \
+      -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+      -dname "CN=Android Debug,O=YoruClock,C=JP" >/dev/null 2>&1
+  else
+    echo "鍵ストアが見つかりません: $KS" >&2
+    exit 1
+  fi
 fi
-"$BT/apksigner" sign --ks "$KS" --ks-pass pass:android --key-pass pass:android \
+"$BT/apksigner" sign --ks "$KS" --ks-pass "pass:$KS_PASS" --key-pass "pass:$KEY_PASS" \
+  --ks-key-alias "$KEY_ALIAS" \
   --out "$BUILD/yoru-clock.apk" "$BUILD/app-aligned.apk"
 CERT_OUT="$("$BT/apksigner" verify --print-certs "$BUILD/yoru-clock.apk")"
 printf '%s\n' "$CERT_OUT" | awk 'NR<=3'
