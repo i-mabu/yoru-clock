@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 月 -->
+    <path
+        android:fillColor="#FFC46B"
+        android:pathData="M70,16 A30,30 0 1,0 70,44 A23,23 0 1,1 70,16 Z" />
+    <!-- 時計の針 (小さな星の代わりに中心点) -->
+    <path
+        android:fillColor="#F2F3FA"
+        android:pathData="M82,66 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
+    <path
+        android:fillColor="#8FA8FF"
+        android:pathData="M30,78 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+</vector>
