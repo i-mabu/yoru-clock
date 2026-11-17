@@ -3,7 +3,7 @@
 夜を基調にしたダークテーマの時計アプリ。外部依存ゼロ・完全オフライン（ネットワーク権限なし）。
 
 - パッケージ: `jp.yoru.clock`
-- バージョン: versionCode 3 / versionName 1.1.0
+- バージョン: versionCode 4 / versionName 1.1.1
 - minSdk 26 / targetSdk 34
 - 言語: Kotlin 1.9.23（Android標準APIのみ）
 

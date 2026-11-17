@@ -37,7 +37,6 @@ class MainActivity : Activity() {
 
     private val panels = arrayOfNulls<View>(4)
     private val tabButtons = arrayOfNulls<Button>(4)
-    private var currentTab = 0
 
     // 時計タブ
     private lateinit var digitalView: TextView
@@ -138,7 +137,6 @@ class MainActivity : Activity() {
     }
 
     private fun selectTab(idx: Int) {
-        currentTab = idx
         for (i in 0 until 4) {
             panels[i]!!.visibility = if (i == idx) View.VISIBLE else View.GONE
             tabButtons[i]!!.setBackgroundColor(if (i == idx) TAB_ON else Color.TRANSPARENT)

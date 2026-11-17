@@ -36,6 +36,13 @@ _try_kotlinc() {
         "/usr/share/kotlin/lib/kotlin-stdlib.jar" \
         "/usr/share/java/kotlin-stdlib.jar"; do
         if [ -f "$cand" ]; then
+            # バージョンが想定 (1.9.23) と違う kotlinc は採用しない (次の候補へ進む)
+            local ver
+            ver="$("$kc" -version 2>&1 | head -1)"
+            case "$ver" in
+                *"$KOTLIN_VERSION"*) ;;
+                *) return 1 ;;
+            esac
             KOTLIN_STDLIB_JAR="$cand"
             KOTLIN_MODE="kotlinc"
             KOTLINC_BIN="$kc"

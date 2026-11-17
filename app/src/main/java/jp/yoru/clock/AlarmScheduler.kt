@@ -7,8 +7,9 @@ import android.content.Intent
 
 // ===== 1. AlarmManager への登録 (setAlarmClock を使い、正確アラーム権限なしで正確に発火させる) =====
 // PendingIntent の requestCode 帯域:
-//   アラーム本体: AlarmItem.rc (連番, 1〜) / スヌーズ: 600000+rc (タイマーは 600999)
-//   通知ID: 700000+rc (タイマーは 700999) / タイマー本体: 900001
+//   アラーム本体: AlarmItem.rc (連番, 1〜) / スヌーズ: 600000+rc (タイマーは 1900001)
+//   通知ID: 700000+rc (タイマーは 1900002) / タイマー本体: 900001
+//   タイマー用はアラーム帯 (rc 連番・旧データ由来の最大 1400999) と重ならない帯に置く
 object AlarmScheduler {
     const val EXTRA_KIND = "kind" // "alarm" / "timer"
     const val EXTRA_ALARM_ID = "alarm_id"
@@ -20,9 +21,9 @@ object AlarmScheduler {
 
     const val TIMER_REQUEST_CODE = 900001
     const val SNOOZE_BASE = 600000
-    const val SNOOZE_TIMER_REQUEST_CODE = 600999
+    const val SNOOZE_TIMER_REQUEST_CODE = 1900001
     const val NOTIF_BASE = 700000
-    const val NOTIF_TIMER_ID = 700999
+    const val NOTIF_TIMER_ID = 1900002
 
     // タイマー状態の保存キー (MainActivity と共有)
     const val TIMER_PREFS = "timer"

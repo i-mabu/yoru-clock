@@ -2,6 +2,7 @@ package jp.yoru.clock
 
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Collections
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.abs
@@ -20,18 +21,18 @@ object ClockLogic {
     // ----- 1.1 世界時計プリセット -----
     class City(val name: String, val tzId: String)
 
-    /** 既定で表示する都市 (順序固定) */
-    val DEFAULT_CITIES: List<City> = listOf(
+    /** 既定で表示する都市 (順序固定)。変更不可リストとして公開する */
+    val DEFAULT_CITIES: List<City> = Collections.unmodifiableList(listOf(
         City("東京", "Asia/Tokyo"),
         City("ソウル", "Asia/Seoul"),
         City("ロンドン", "Europe/London"),
         City("ニューヨーク", "America/New_York"),
         City("ロサンゼルス", "America/Los_Angeles"),
         City("シドニー", "Australia/Sydney")
-    )
+    ))
 
-    /** 追加候補のカタログ (DEFAULT_CITIES を含む全候補) */
-    val CITY_CATALOG: List<City> = listOf(
+    /** 追加候補のカタログ (DEFAULT_CITIES を含む全候補)。変更不可リストとして公開する */
+    val CITY_CATALOG: List<City> = Collections.unmodifiableList(listOf(
         City("東京", "Asia/Tokyo"),
         City("ソウル", "Asia/Seoul"),
         City("北京", "Asia/Shanghai"),
@@ -50,7 +51,7 @@ object ClockLogic {
         City("ホノルル", "Pacific/Honolulu"),
         City("シドニー", "Australia/Sydney"),
         City("オークランド", "Pacific/Auckland")
-    )
+    ))
 
     fun findCityByTz(tzId: String): City? {
         for (c in CITY_CATALOG) if (c.tzId == tzId) return c

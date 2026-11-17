@@ -26,7 +26,8 @@ jobs:
           java-version: '21'
       - name: Install Kotlin compiler 1.9.23
         run: |
-          curl -sSL -o /tmp/kotlin-compiler-1.9.23.zip "https://github.com/JetBrains/kotlin/releases/download/v1.9.23/kotlin-compiler-1.9.23.zip"
+          curl -fsSL -o /tmp/kotlin-compiler-1.9.23.zip "https://github.com/JetBrains/kotlin/releases/download/v1.9.23/kotlin-compiler-1.9.23.zip"
+          echo "93137d3aab9afa9b27cb06a824c2324195c6b6f6179d8a8653f440f5bd58be88  /tmp/kotlin-compiler-1.9.23.zip" | sha256sum -c -
           unzip -q /tmp/kotlin-compiler-1.9.23.zip -d /tmp
           echo "KOTLIN_HOME=/tmp/kotlinc" >> "$GITHUB_ENV"
       - name: Run unit tests (pure logic, no network)
@@ -43,5 +44,12 @@ jobs:
       - name: Verify APK
         run: |
           set -o pipefail
-          "$ANDROID_HOME/build-tools/34.0.0/aapt2" dump badging dist/yoru-clock.apk | head -5
+          BADGING="$("$ANDROID_HOME/build-tools/34.0.0/aapt2" dump badging dist/yoru-clock.apk)"
+          echo "$BADGING" | head -5
+          echo "$BADGING" | grep -q "versionCode='4'"
+          echo "$BADGING" | grep -q "versionName='1.1.1'"
+          for p in RECEIVE_BOOT_COMPLETED VIBRATE POST_NOTIFICATIONS USE_FULL_SCREEN_INTENT; do
+            echo "$BADGING" | grep -q "android.permission.$p"
+          done
+          unzip -l dist/yoru-clock.apk | grep -q "classes.dex"
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify dist/yoru-clock.apk

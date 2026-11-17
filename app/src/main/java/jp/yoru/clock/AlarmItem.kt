@@ -53,11 +53,11 @@ class AlarmItem {
 
     // ----- 1.1 requestCode の採番 -----
     companion object {
-        /** 次に使う requestCode: 既存の最大 rc + 1 (なければ 1) */
-        fun nextRequestCode(items: List<AlarmItem>?): Int {
+        /** 次に使う requestCode: 既存の最大 rc + 1 (なければ 1)。null 要素は読み飛ばす */
+        fun nextRequestCode(items: List<AlarmItem?>?): Int {
             var max = 0
             if (items != null) {
-                for (item in items) if (item.rc > max) max = item.rc
+                for (item in items) if (item != null && item.rc > max) max = item.rc
             }
             return max + 1
         }

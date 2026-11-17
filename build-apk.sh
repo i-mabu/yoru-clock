@@ -57,7 +57,10 @@ fi
 
 # ----- 1.4 d8 -----
 echo "[4/6] d8 (kotlin-stdlib を含める)"
-"$BT/d8" --min-api 26 --output "$BUILD/dex" $(find "$BUILD/classes" -name '*.class') "$KOTLIN_STDLIB_JAR"
+[ -f "$BUILD/classes/jp/yoru/clock/MainActivity.class" ] || { echo "コンパイル成果物がありません: MainActivity.class" >&2; exit 1; }
+CLASS_FILES=()
+while IFS= read -r f; do CLASS_FILES+=("$f"); done < <(find "$BUILD/classes" -name '*.class' | sort)
+"$BT/d8" --min-api 26 --output "$BUILD/dex" "${CLASS_FILES[@]}" "$KOTLIN_STDLIB_JAR"
 
 # ----- 1.5 package + zipalign -----
 echo "[5/6] package + zipalign"
@@ -75,7 +78,8 @@ if [ ! -f "$KS" ]; then
 fi
 "$BT/apksigner" sign --ks "$KS" --ks-pass pass:android --key-pass pass:android \
   --out "$BUILD/yoru-clock.apk" "$BUILD/app-aligned.apk"
-"$BT/apksigner" verify --print-certs "$BUILD/yoru-clock.apk" | head -3
+CERT_OUT="$("$BT/apksigner" verify --print-certs "$BUILD/yoru-clock.apk")"
+printf '%s\n' "$CERT_OUT" | awk 'NR<=3'
 mkdir -p dist
 cp "$BUILD/yoru-clock.apk" dist/yoru-clock.apk
 echo "OK: dist/yoru-clock.apk"

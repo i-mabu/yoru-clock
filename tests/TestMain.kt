@@ -159,6 +159,10 @@ object TestMain {
         val a = AlarmItem(); a.rc = 1; items.add(a)
         val b = AlarmItem(); b.rc = 3; items.add(b)
         check(AlarmItem.nextRequestCode(items) == 4, "nextRequestCode {1,3} -> 4")
+        // nextRequestCode: null 要素は読み飛ばす {1, null, 3} → 4
+        val withNull = ArrayList<AlarmItem?>()
+        withNull.add(a); withNull.add(null); withNull.add(b)
+        check(AlarmItem.nextRequestCode(withNull) == 4, "nextRequestCode skips null")
 
         val tue0800 = at(2026, 11, 17, 8, 0)
         // 短い repeat 配列 (長さ1, 全 false): 例外なく単発相当 (今日の未来時刻)
@@ -238,6 +242,14 @@ object TestMain {
         // 都市プリセット
         check(ClockLogic.DEFAULT_CITIES.size == 6, "default cities 6")
         check(ClockLogic.DEFAULT_CITIES[0].name == "東京", "default city 0 Tokyo")
+        // プリセット/カタログは変更不可 (Java 版 List.of と同じ不変性)
+        var citiesImmutable = false
+        try {
+            (ClockLogic.DEFAULT_CITIES as MutableList<ClockLogic.City>).set(0, ClockLogic.DEFAULT_CITIES[0])
+        } catch (e: UnsupportedOperationException) {
+            citiesImmutable = true
+        }
+        check(citiesImmutable, "default cities unmodifiable")
         check(ClockLogic.findCityByTz("Europe/London") != null, "catalog has London")
         check(ClockLogic.findCityByTz("Invalid/Zone") == null, "catalog rejects unknown")
     }
