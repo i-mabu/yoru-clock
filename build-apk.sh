@@ -128,11 +128,14 @@ echo "[5/6] package + zipalign"
 cp "$BUILD/app-unsigned.apk" "$BUILD/app-with-dex.apk"
 ( cd "$BUILD/dex" && zip -q -uj ../app-with-dex.apk classes*.dex )
 # AAR 内のネイティブライブラリを lib/<abi>/ に同梱 (非圧縮で格納し zipalign -p で整列)
-while IFS= read -r so; do
-  rel="${so#*jni/}"
-  mkdir -p "$BUILD/nativelib/lib/$(dirname "$rel")"
-  cp "$so" "$BUILD/nativelib/lib/$rel"
-done < <(find "${AAR_DIRS[@]}" -path '*/jni/*' -name '*.so')
+# AAR が無い場合、find の探索起点がカレントディレクトリになってしまうため実行しない
+if [ "${#AAR_DIRS[@]}" -gt 0 ]; then
+  while IFS= read -r so; do
+    rel="${so#*jni/}"
+    mkdir -p "$BUILD/nativelib/lib/$(dirname "$rel")"
+    cp "$so" "$BUILD/nativelib/lib/$rel"
+  done < <(find "${AAR_DIRS[@]}" -path '*/jni/*' -name '*.so')
+fi
 if [ -d "$BUILD/nativelib" ]; then
   ( cd "$BUILD/nativelib" && zip -q -0 -r ../app-with-dex.apk lib )
 fi

@@ -116,8 +116,8 @@ internal fun StopwatchTab() {
         Column(modifier = Modifier.padding(top = 16.dp)) {
             for (lap in laps) {
                 Text(
-                    text = "ラップ " + lap.number + "　　" + ClockLogic.formatStopwatch(lap.lapMs)
-                        + "　　累計 " + ClockLogic.formatStopwatch(lap.cumMs),
+                    text = "ラップ " + lap.number + "　　" + ClockLogic.formatStopwatchLong(lap.lapMs)
+                        + "　　累計 " + ClockLogic.formatStopwatchLong(lap.cumMs),
                     color = NightText, fontSize = 16.sp, fontFamily = MonoFamily,
                     modifier = Modifier
                         .fillMaxWidth()
