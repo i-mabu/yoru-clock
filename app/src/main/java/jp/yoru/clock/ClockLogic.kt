@@ -233,7 +233,7 @@ object ClockLogic {
         return "%02d:%02d".format(Locale.US, m, s)
     }
 
-    /** NumberPicker の値 → 合計ミリ秒 */
+    /** 時/分/秒の入力値 → 合計ミリ秒 */
     fun timerTotalMillis(hours: Int, minutes: Int, seconds: Int): Long {
         return ((hours * 60L + minutes) * 60L + seconds) * 1000L
     }

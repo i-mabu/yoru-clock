@@ -178,6 +178,7 @@ private fun loadWorldCities(context: Context): List<ClockLogic.City> {
             if (result.none { it.tzId == c.tzId }) result.add(c)
         }
     } catch (ignored: Exception) {
+        // JSON が壊れている場合は既定に戻さず、読めた分 (なければ空) を返す
     }
     return result
 }

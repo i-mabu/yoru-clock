@@ -58,6 +58,7 @@ internal fun AnalogClock(modifier: Modifier = Modifier) {
         val minute = now.get(Calendar.MINUTE)
         val sec = now.get(Calendar.SECOND)
         val ms = now.get(Calendar.MILLISECOND)
+        // 下位の単位を小数に繰り入れて各針を滑らかに動かす (秒針はミリ秒まで反映)
         val secF = sec + ms / 1000.0
         val minF = minute + secF / 60.0
         val hourF = (hour % 12) + minF / 60.0

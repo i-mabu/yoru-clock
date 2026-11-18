@@ -25,7 +25,7 @@ object AlarmScheduler {
     const val NOTIF_BASE = 700000
     const val NOTIF_TIMER_ID = 1900002
 
-    // タイマー状態の保存キー (MainActivity と共有)
+    // タイマー状態の保存キー (TimerTab / AlarmReceiver と共有)
     const val TIMER_PREFS = "timer"
     const val KEY_TIMER_END = "end_millis"
     const val KEY_TIMER_TOTAL = "total_millis"

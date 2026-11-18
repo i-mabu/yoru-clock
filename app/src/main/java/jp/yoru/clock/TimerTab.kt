@@ -194,6 +194,7 @@ internal fun TimerTab() {
             ) { Text(if (running) "一時停止" else if (hasPausedState) "再開" else "開始", fontSize = 18.sp) }
             Button(
                 onClick = {
+                    // 本体・スヌーズの登録を取り消し、保存したタイマー状態も全て消す
                     AlarmScheduler.cancelTimer(context)
                     AlarmScheduler.cancelSnoozeTimer(context)
                     prefs.edit().clear().apply()

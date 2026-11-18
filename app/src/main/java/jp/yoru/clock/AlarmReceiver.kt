@@ -38,7 +38,7 @@ class AlarmReceiver : BroadcastReceiver() {
             }
         }
         if ("timer" == kind) {
-            // タイマーは終了状態にする (MainActivity再開時に 00:00 表示へ)
+            // タイマーは終了状態にする (TimerTab 再開時に初期表示へ戻る)
             context.getSharedPreferences(AlarmScheduler.TIMER_PREFS, Context.MODE_PRIVATE)
                 .edit()
                 .putBoolean(AlarmScheduler.KEY_TIMER_RUNNING, false)

@@ -91,6 +91,7 @@ internal fun StopwatchTab() {
                         if (cum > 0) {
                             val lapTime = cum - lastLapCum
                             lastLapCum = cum
+                            // 先頭に追加して一覧を新しい順に保つ (番号は追加順に増える)
                             laps.add(0, LapEntry(laps.size + 1, lapTime, cum))
                         }
                     }

@@ -45,6 +45,7 @@ class AlarmItem {
     }
 
     fun copy(): AlarmItem {
+        // コンストラクタでは渡せない rc / triggerMillis も引き継ぐ
         val c = AlarmItem(id, hour, minute, label, enabled, repeat)
         c.rc = rc
         c.triggerMillis = triggerMillis
