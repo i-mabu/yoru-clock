@@ -4,6 +4,7 @@ name: CI
 # manual APK build, then verifies the APK badging. Runs on pushes to main
 # and on pull requests; documentation-only changes are skipped.
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths-ignore:
