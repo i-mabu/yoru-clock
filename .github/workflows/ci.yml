@@ -1,0 +1,72 @@
+name: CI
+
+# Lightweight CI: one job that runs the JVM unit tests and the offline
+# manual APK build, then verifies the APK badging. Runs on pushes to main
+# and on pull requests; documentation-only changes are skipped.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Kotlin compiler 2.0.21
+        run: |
+          curl -fsSL -o /tmp/kotlin-compiler-2.0.21.zip "https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip"
+          # Pin the sha256 so a tampered download is detected
+          # (hash computed from the genuine artifact on 2026-11-18).
+          echo "0352c0a45bd22f80f6b26e485cd04da8047baa5de54865281fb9f89a4a7bcf2a  /tmp/kotlin-compiler-2.0.21.zip" | sha256sum -c -
+          unzip -q /tmp/kotlin-compiler-2.0.21.zip -d /tmp
+          echo "KOTLIN_HOME=/tmp/kotlinc" >> "$GITHUB_ENV"
+      - name: Fetch Compose dependencies and build tools
+        run: |
+          python3 tools/resolve.py
+          curl -fsSL -o tools/r8-8.7.18.jar "https://dl.google.com/dl/android/maven2/com/android/tools/r8/8.7.18/r8-8.7.18.jar"
+          echo "58366f77067207c39a17d469de7b05701d2877212a9c55201bcb0af43e59e903  tools/r8-8.7.18.jar" | sha256sum -c -
+          curl -fsSL -o tools/kotlin-compose-compiler-plugin-2.0.21.jar "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-compose-compiler-plugin/2.0.21/kotlin-compose-compiler-plugin-2.0.21.jar"
+          echo "7a38399c652ef449075aa437c5dbaf0ea02915276a54ee008326dfb6af5b273f  tools/kotlin-compose-compiler-plugin-2.0.21.jar" | sha256sum -c -
+      - name: Run unit tests (pure logic, no network)
+        run: |
+          chmod +x tests/run-tests.sh build-apk.sh build.sh
+          ./tests/run-tests.sh
+      - name: Install Android SDK packages
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
+      - name: Build APK (offline manual pipeline)
+        run: |
+          ANDROID_SDK_ROOT="$ANDROID_HOME" ./build-apk.sh
+      - name: Verify APK
+        run: |
+          set -o pipefail
+          BADGING="$("$ANDROID_HOME/build-tools/34.0.0/aapt2" dump badging dist/yoru-clock.apk)"
+          echo "$BADGING" | head -5
+          echo "$BADGING" | grep -q "name='jp.yoru.clock'"
+          echo "$BADGING" | grep -q "versionCode='1'"
+          echo "$BADGING" | grep -q "versionName='1.0.0'"
+          for p in RECEIVE_BOOT_COMPLETED VIBRATE POST_NOTIFICATIONS USE_FULL_SCREEN_INTENT; do
+            echo "$BADGING" | grep -q "android.permission.$p"
+          done
+          unzip -l dist/yoru-clock.apk | grep -q "classes.dex"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify dist/yoru-clock.apk

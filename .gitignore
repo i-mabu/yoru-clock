@@ -1,0 +1,22 @@
+# ===== ビルド成果物 =====
+build/
+dist/
+*.apk
+
+# ===== IDE / OS =====
+.idea/
+*.iml
+.DS_Store
+
+# ===== 依存アーティファクト (tools/resolve.py で取得する配布物) =====
+libs/
+tools/r8-*.jar
+tools/kotlin-compose-compiler-plugin-*.jar
+
+# ===== 署名 (デバッグ用キーストアだけは署名の継続性のため残す) =====
+*.keystore
+!debug.keystore
+
+# ===== 秘密情報 / ログ =====
+.env
+*.log
